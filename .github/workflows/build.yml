@@ -1,0 +1,38 @@
+name: Build IzPack Installer
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+
+      - name: Build with Maven
+        run: |
+          mvn clean package -X > build.log 2>&1
+          cat build.log
+
+      - name: Upload Build Log
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+
+      - name: Upload Installer JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: izpack-installer
+          path: target/the-example-installer.jar
+          if-no-files-found: error
