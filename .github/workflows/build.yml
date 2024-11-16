@@ -33,17 +33,9 @@ jobs:
           name: build-log
           path: build.log
 
-      - name: List target directory
-        run: |
-          if [ -d "staging" ]; then
-            ls -la staging
-          else
-            echo "Target directory does not exist."
-          fi
-
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: izpack-installer
-          path: staging/the-example-installer.jar
+          path: the-example-installer.jar
           if-no-files-found: error
