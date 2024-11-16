@@ -35,8 +35,8 @@ jobs:
 
       - name: List target directory
         run: |
-          if [ -d "target" ]; then
-            ls -la target
+          if [ -d "staging" ]; then
+            ls -la staging
           else
             echo "Target directory does not exist."
           fi
@@ -45,5 +45,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: izpack-installer
-          path: target/the-example-installer.jar
+          path: staging/the-example-installer.jar
           if-no-files-found: error
