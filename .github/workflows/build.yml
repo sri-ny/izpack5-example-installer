@@ -3,7 +3,7 @@ name: Build IzPack Installer
 on:
   push:
     branches:
-      - master
+      - izpack5-2.0
 
 jobs:
   build:
@@ -17,7 +17,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '11'
+          java-version: '8'
 
       - name: Create target directory
         run: mkdir -p target
