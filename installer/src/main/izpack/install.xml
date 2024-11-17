@@ -48,20 +48,18 @@
     <!-- pull in the built jar file for our custom panel -->
     <jar src="custom/izpack-panels.jar" stage="both"/>
 
-    <panels>
+        <panels>
         <!-- FIXME why doesn't HTMLHelloPanel work any more?  it is nice not to have the "Please read the following information" text ... -->
-        <panel classname="HTMLInfoPanel" id="welcome"/>
-
-        <!-- this is our custom panel, loaded from the izpack-panels.jar file -->
-        <panel classname="com.izforge.izpack.panels.mypanels.MyHelloPanel" id="myHello"/>
-
-        <panel classname="TargetPanel" id="install_dir"/>
+        <panel classname="RegisterInfoPanel" id="registerInfoPanel"/>
+		<panel classname="TargetPanel" id="install_dir"/>
         <panel classname="PacksPanel" id="sdk_pack_select"/>
-        <panel classname="InstallPanel" id="install"/>
+        <!-- this is our custom panel, loaded from the izpack-panels.jar file -->
+        <panel classname="com.izforge.izpack.panels.xstprocess" id="XstoreProcessPanel"/>
+       
         <panel classname="FinishPanel" id="finish"/>
     </panels>
 
-    <packs>
+   <!--  <packs>
         <pack name="ColoradoPics" preselected="yes" required="no">
             <description>Some nice pictures of the Maroon Bells in Aspen Colorado.</description>
             <file src="pack1_content/pack1_content.zip" targetdir="$INSTALL_PATH/docs" unpack="true"/>
@@ -69,6 +67,16 @@
         <pack name="DirtBikes" required="yes">
             <description>Some pictures of dirt bikes because I wanted another pack in the example.</description>
             <file src="pack2_content/adave_willet_jim_davies.jpg" targetdir="$INSTALL_PATH"/>
+        </pack>
+    </packs> -->
+	<packs>
+        <pack name="NotepadPlus" preselected="yes" required="no">
+            <description>Some nice pictures of the Maroon Bells in Aspen Colorado.</description>
+            <file src="npp/npp.8.6.Installer.x64.exe" targetdir="$INSTALL_PATH/npp" unpack="true"/>
+        </pack>
+        <pack name="Eftlink" required="yes">
+            <description>Some pictures of dirt bikes because I wanted another pack in the example.</description>
+            <file src="Eftlink23/EFTLink-23.0.1.0.20240112160134-1.0.17-JCR.zip" targetdir="$INSTALL_PATH/eftlink23"/>
         </pack>
     </packs>
 </installation>

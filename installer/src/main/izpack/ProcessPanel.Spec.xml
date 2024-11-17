@@ -1,0 +1,1874 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<izpack:processing version="5.0" 
+	xmlns:izpack="http://izpack.org/schema/processing" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://izpack.org/schema/processing http://izpack.org/schema/5.0/izpack-processing-5.0.xsd">
+
+	<job name="Startup WinXP" condition="windowsXP-flag-present">
+		<executefile workingDir="c:\windows\system32" name="c:\windows\system32\cacls.exe">
+			<arg>c:\xstinst</arg>
+			<arg>/E</arg>
+			<arg>/E</arg>
+			<arg>/E</arg>
+			<arg>/E</arg>
+			<arg>everyone:F</arg>
+		</executefile>
+
+		<executefile workingDir="c:\windows\system32" name="c:\windows\system32\cmd.exe">
+			<arg>/C</arg>
+			<arg>C:\xstinst\setup\XPCopyTools.bat</arg>
+		</executefile>
+
+	</job>
+
+	<job name="Startup non-WinXP" condition="!windowsXP-flag-present">
+
+		<executefile workingDir="c:\windows\system32" name="c:\windows\system32\icacls.exe">
+			<arg>c:\xstinst</arg>
+			<arg>/grant</arg>
+			<arg>everyone:(OI)(CI)(F)</arg>
+			<arg>/T</arg>
+		</executefile>
+
+		<!-- Disable firewall -->
+		<executefile workingDir="c:\windows\system32" name="netsh">
+			<arg>Advfirewall</arg>
+			<arg>set</arg>
+			<arg>allprofiles</arg>
+			<arg>state</arg>
+			<arg>off</arg>
+		</executefile>
+
+		<executefile workingDir="c:\windows\system32" name="netsh">
+			<arg>interface</arg>
+			<arg>set</arg>
+			<arg>interface</arg>
+			<arg>"Ethernet 2"</arg>
+			<arg>disable</arg>
+		</executefile>
+
+		<!-- Disable windows updates service -->
+		<executefile workingDir="c:\windows\system32\" name="sc.exe">
+			<arg>stop</arg>
+			<arg>wuauserv</arg>
+		</executefile>
+		<executefile workingDir="c:\windows\system32\" name="sc.exe">
+			<arg>config</arg>
+			<arg>wuauserv</arg>
+			<arg>start=</arg>
+			<arg>disabled</arg>
+		</executefile>
+
+	</job>
+
+	<job name="Startup Win10" condition="windows10-flag-present">
+		<!-- Disable windows defender -->
+		<executefile workingDir="c:\windows\system32\WindowsPowerShell\v1.0\" name="powershell.exe">
+			<arg>set-mpppreference</arg>
+			<arg>-disablerealtimemonitoring</arg>
+			<arg>1</arg>
+		</executefile>
+		<setregistryvalue regpath="HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows Defender" regkey="DisableAntiSpyware" regvaltype="REG_DWORD" regvalue="1" />
+	</job>
+
+	<!-- Load variables used throughout installer -->
+	<job name="Load configurations">
+
+		<!-- Some oracle "unchangable" defaults, see implementation and security guide -->
+		<setvariable variable="sysdbuser" value="sys"/>
+		<setvariable variable="masterdbuser" value="dbauser"/>
+		<setvariable variable="ownerdbuser" value="dtv"/>
+		<setvariable variable="posdbuser" value="pos"/>
+		<setvariable variable="primarydbuser" value="${posdbuser}"/>
+		<setvariable variable="localdbuser" value="${primarydbuser}"/>
+		<setvariable variable="admindbuser" value="system"/>
+		<setvariable variable="repldbuser" value="repqueue"/>
+		<setvariable variable="trainingdbuser" value="training"/>
+
+		<!-- We get the password from the config screen or passwd file, we don't hard set it here, security risk as this is plain text file -->
+		<encryptedpropertyfileread propertyfile="${passwordPropertiesFile}" filepassword="${passwordPropertiesFilePassword}">
+			<!-- Username of the db user Xstore will connect to the DB with. -->
+			<property key="sysdbpass" variable="sysdbpass" />
+			<property key="masterdbpass" variable="masterdbpass" />
+			<property key="ownerdbpass" variable="ownerdbpass" />
+			<property key="posdbpass" variable="posdbpass" />
+			<property key="admindbpass" variable="admindbpass" />
+			<property key="repldbpass" variable="repldbpass" />
+			<property key="trainingdbpass" variable="trainingdbpass" />
+			<property key="dbauserdbpass" variable="dbauserdbpass" />
+
+			<!-- Xcenter connectivity info -->
+			<property key="xcenterhost" variable="xcenterhost" />
+			<property key="xcenterport" variable="xcenterport" />
+			<property key="xcenteruser" variable="xcenteruser" />
+			<property key="xcenterpass" variable="xcenterpass" />
+
+			<!-- Apache connectivity info -->
+			<property key="apacheuser" variable="apacheusername" />
+			<property key="apachepass" variable="apachepassword" />
+			<property key="apachehost" variable="apachehost" />
+			<property key="apacheport" variable="apacheport" />
+
+			<!-- Email receipt info -->
+			<property key="smtpserverlogin" variable="smtpserverlogin" />
+			<property key="smtpserverpassword" variable="smtpserverpassword" />
+
+			<!-- Windows user information -->
+			<property key="windowsposuserusername" variable="windowsposuserusername" />
+			<property key="windowsposuserpassword" variable="windowsposuserpassword" />
+			<property key="windowssysadminuserusername" variable="windowssysadminuserusername" />
+			<property key="windowssysadminuserpassword" variable="windowssysadminuserpassword" />
+
+			<property key="mobilekeypassword" variable="mobilekeypassword" />
+		</encryptedpropertyfileread>
+
+		<!-- Replicate the password as it always same between these two for our setups -->
+		<setvariable variable="primarydbpass" value="${posdbpass}"/>
+		<setvariable variable="localdbpass" value="${posdbpass}"/>
+
+		<!-- Users built into staging WIM -->
+		<setvariable variable="windowsPOSUser" value="xstore"/>
+		<setvariable variable="windowsSYSUser" value="sysadmin"/>
+
+		<!-- Database variables -->
+		<setvariable variable="oracleHome" value="c:\oracle\product\12.2.0\dbhome_xstore"/>
+		<setvariable variable="oracleBin" value="${oracleHome}\bin"/>
+		<setvariable variable="sqlplusCmd" value="${oracleBin}\sqlplus.exe"/>
+
+		<!-- 7z stand alone location used for installing -->
+		<setvariable variable="sevenz" value="${INSTALL_PATH_WIN}\setup\sevenzport\7za.exe"/>
+
+		<!-- Pad store numbers -->
+		<setvariable variable="storeNumberPadded" value="${storeNumber}" paddingtype="MAXSTRINGSIZETRIM" paddingside="LEFT" paddingsize="4" paddingchar="0"/>
+		<setvariable variable="storeNumberPaddedFive" value="${storeNumber}" paddingtype="MAXSTRINGSIZETRIM" paddingside="LEFT" paddingsize="5" paddingchar="0"/>
+		<setvariable variable="registerNumberPadded" value="${registerNumber}" paddingtype="MAXSTRINGSIZETRIM" paddingside="LEFT" paddingsize="3" paddingchar="0"/>
+		<setvariable variable="registerNumberPaddedTwo" value="${registerNumber}" paddingtype="MAXSTRINGSIZETRIM" paddingside="LEFT" paddingsize="2" paddingchar="0"/>
+		<setvariable variable="storeNumberDepadded" value="${storeNumber}" />
+		<setvariable variable="registerNumberDepadded" value="${registerNumber}" />
+
+		<!-- Set other variables -->
+		<setvariable variable="oldhostname" value="${ENV[COMPUTERNAME]}" />
+
+		<!-- Xstore/Xenv Datasource variables -->
+		<setvariable variable="localHost" value="localhost"/>
+		<setvariable variable="primaryHost" value="S${storeNumberPadded}R099"/>
+		<setvariable variable="backupHost" value="S${storeNumberPadded}R002"/>
+		<setvariable variable="regHostName" value="S${storeNumberPadded}R${registerNumberPadded}"/>
+		<setvariable variable="orgid" value="1"/>
+		<setvariable variable="apacheurl" value="https://${apachehost}:${apacheport}/upload"/>
+		<setvariable variable="xcenterurl" value="https://${xcenterhost}:${xcenterport}"/>
+
+		<!-- Read in storeinfo settings from the csv file -->
+		<csvfileread csvfile="${INSTALL_PATH}/storeinfo.csv">
+			<matchcolumn columnnum="0" matchvalue="${storeNumber}" />
+			<readcolumn columnnum="1" variablename="storeLocation" />
+			<readcolumn columnnum="2" variablename="timeZone" />
+			<readcolumn columnnum="3" variablename="visaNumber" />
+			<readcolumn columnnum="4" variablename="amexNumber" />
+			<readcolumn columnnum="5" variablename="discoverNumber" />
+			<readcolumn columnnum="6" variablename="teleCheckNumber" />
+			<readcolumn columnnum="7" variablename="jcrewNumber" />
+			<readcolumn columnnum="8" variablename="certegyNumber" />
+			<readcolumn columnnum="9" variablename="storeBrand" />
+			<readcolumn columnnum="10" variablename="ipSchema" />
+			<readcolumn columnnum="11" variablename="storeCountryCode" />
+			<readcolumn columnnum="12" variablename="stateCode" />
+			<readcolumn columnnum="13" variablename="bankName" />
+			<readcolumn columnnum="14" variablename="bankAccount" />
+			<readcolumn columnnum="15" variablename="tillFloat" />
+			<readcolumn columnnum="16" variablename="registerCount" />
+			<!-- Store|Location|Time Zone|Visa/Mastercard|Amex|Discover|Telecheck|J. Crew|Certegy *|Division|IP Schema|Country|State|BankName|BankAcct|Till|RegCount -->
+		</csvfileread>
+
+		<!-- Register ip -->
+		<setvariable variable="registerIPLastOctet" value="${registerNumber}" mathoperation="ADD" mathvalue="40"/>
+		<setvariable variable="registerIP" value="${ipSchema}.${registerIPLastOctet}"/>
+		<setvariable variable="registerGateway" value="${ipSchema}.33"/>
+
+		<!-- Brand settings -->
+		<setvariable casetransform="LOWER" variable="storeBrand.LOWER" value="${storeBrand}"/>
+		<setvariable casetransform="UPPER" variable="storeBrand.UPPER" value="${storeBrand}"/>
+
+		<!-- Get Storename for XENV -->
+		<setvariable variable="storeName" value="${storeLocation}"/>
+		<setvariable variable="storeName.LOWER" value="${storeName}" casetransform="LOWER" />
+		<setvariable variable="storeName.UPPER" value="${storeName}" casetransform="UPPER" />
+
+		<!-- Set case versions of variables - country code -->
+		<setvariable casetransform="UPPER" variable="storeCountryCode.UPPER" value="${storeCountryCode}"/>
+		<setvariable casetransform="LOWER" variable="storeCountryCode.LOWER" value="${storeCountryCode}"/>
+
+		<!-- Store timezone -->
+		<setvariable variable="storeTimeZone.UPPER" value="${storeTimeZone}" casetransform="UPPER" />
+		<setvariable variable="storeTimeZone.LOWER" value="${storeTimeZone}" casetransform="LOWER" />
+
+		<!-- Set starting values, so this can be built up throughout staging, must start with a colon -->
+		<setvariable variable="generatedConfPath" value=":singleswipe:ecommerce:ecommerce/customerlookup:ecommerce/directorderreturns:plcc:version1/ajb:"/>
+
+		<!-- Build up new path to set OS PATH -->
+		<setvariable variable="modifiedPath" value="${ENV[PATH]}"/>
+	</job>
+
+	<job name="Load configurations" condition="!windows10-flag-present">
+		<!-- Database variables -->
+		<setvariable variable="oracleHome" value="c:\oracle\product\11.2.0\dbhome_1"/>
+		<setvariable variable="oracleBin" value="${oracleHome}\bin"/>
+		<setvariable variable="sqlplusCmd" value="${oracleBin}\sqlplus.exe"/>
+	</job>
+
+	<job name="Setting US Country variables" condition="COUNTRY_US">
+		<setvariable variable="storeRegion" value="ntam"/>
+		<setvariable variable="storeCurrency" value="USD"/>
+		<setvariable variable="storeLanguageCode" value="en_US"/>
+	</job>
+	<job name="Setting HK Country variables" condition="COUNTRY_HK">
+		<setvariable variable="storeRegion" value="apac"/>
+		<setvariable variable="storeCurrency" value="CNY"/>
+		<setvariable variable="storeLanguageCode" value="zh_CN"/>
+	</job>
+	<job name="Setting GB Country variables" condition="COUNTRY_GB">
+		<setvariable variable="storeRegion" value="emea"/>
+		<setvariable variable="storeCurrency" value="GBP"/>
+		<setvariable variable="storeLanguageCode" value="en_GB"/>
+		<setvariable variable="countryOverride" value=":country/gb/retailoverride"/>
+	</job>
+
+	<job name="Set division Madewell" condition="BRAND_MADEWELL">
+		<setvariable variable="orgid" value="2"/>
+		<setvariable variable="storeType" value="retail"/>
+		<setvariable variable="store_propfile" value="madewell"/>
+	</job>
+	<job name="Set division Jcrew" condition="BRAND_JCREW">
+		<setvariable variable="orgid" value="1"/>
+		<setvariable variable="storeType" value="retail"/>
+		<setvariable variable="store_propfile" value="jcrew"/>
+	</job>
+	<job name="Set division Jcrew Factory" condition="BRAND_FACTORY">
+		<setvariable variable="orgid" value="1"/>
+		<setvariable variable="storeType" value="factory"/>
+		<setvariable variable="storeBrand" value="jcrew"/>
+		<setvariable variable="store_propfile" value="factory"/>
+	</job>
+
+	<job name="Set Lead Variables" condition="islead">
+		<setvariable variable="XENV_ROLE" value="lead"/>
+		<setvariable variable="xstoreRegType" value="backoffice"/>
+		<setvariable variable="INSTALL_XMOBILE_ADVINST" value="mobile"/>
+		<setvariable variable="INSTALL_XMOBILE_SERVER" value="true"/>
+		<setvariable variable="INSTALL_XMOBILE_SERVER_DISABLED" value="false"/>
+		<setvariable variable="registerIP" value="${ipSchema}.39"/>
+	</job>
+
+	<job name="Store Primary Register Function" condition="REGMODEL_HPELITE">
+		<setvariable variable="xstoreRegType" value="primary"/>
+	</job>
+
+	<job name="Set Non Lead Variables" condition="!islead">
+		<setvariable variable="XENV_ROLE" value="nonlead"/>
+		<setvariable variable="xstoreRegType" value="other"/>
+		<setvariable variable="INSTALL_XMOBILE_ADVINST" value="none"/>
+		<setvariable variable="INSTALL_XMOBILE_SERVER" value="false"/>
+		<setvariable variable="INSTALL_XMOBILE_SERVER_DISABLED" value="true"/>
+	</job>
+
+
+
+	<job name="Process variables">
+
+		<!-- Store type settings -->
+		<setvariable variable="storeType.UPPER" value="${storeType}" casetransform="UPPER" />
+		<setvariable variable="storeType.LOWER" value="${storeType}" casetransform="LOWER" />
+
+		<!-- Brand settings - we do it a second time here because the IF statements above MAY override the base variable -->
+		<setvariable casetransform="LOWER" variable="storeBrand.LOWER" value="${storeBrand}"/>
+		<setvariable casetransform="UPPER" variable="storeBrand.UPPER" value="${storeBrand}"/>
+
+		<!-- Set case versions of variables -->
+		<setvariable variable="storeRegion.UPPER" value="${storeRegion}" casetransform="UPPER" />
+		<setvariable variable="storeCurrency.UPPER" value="${storeCurrency}" casetransform="UPPER" />
+
+		<setvariable variable="storeRegion.LOWER" value="${storeRegion}" casetransform="LOWER" />
+		<setvariable variable="storeCurrency.LOWER" value="${storeCurrency}" casetransform="LOWER" />
+
+		<!-- Build config path up with country/region settings -->
+		<setvariable variable="generatedConfPath" value="${generatedConfPath}:region/${storeRegion.LOWER}"/>
+		<setvariable variable="generatedConfPath" value="${generatedConfPath}:country/${storeCountryCode.LOWER}"/>
+		<setvariable variable="generatedMobileConfPath" value="${generatedConfPath}:regtype/other"/>
+		<setvariable variable="generatedConfPath" value="${generatedConfPath}:regtype/${xstoreRegType}"/>
+		<setvariable variable="generatedConfPath" value="${generatedConfPath}:storetype/${storeType.LOWER}"/>
+		<setvariable variable="generatedConfPath" value="${generatedConfPath}:brand/${storeBrand.LOWER}"/>
+		<setvariable variable="generatedConfPath" value="${generatedConfPath}:brand/${storeBrand.LOWER}/${storeCountryCode.UPPER}"/>
+		<!-- Updating 20221212 to remove brand loyalty and add in loyalty/merkle-->
+		<setvariable variable="generatedConfPath" value="${generatedConfPath}:loyalty/merkle"/>
+		
+
+		<!-- Build up mobile config path, below this point, any config paths that are not equal between Xstore and Mobile should be set -->
+		<!-- Above this point common to mbile and xstore should be set, here we copy the Xstore Config to Mobile, and branch off the differences -->
+		<setvariable variable="generatedMobileConfPath" value="${generatedMobileConfPath}:storetype/${storeType.LOWER}"/>
+		<setvariable variable="generatedMobileConfPath" value="${generatedMobileConfPath}:brand/${storeBrand.LOWER}"/>
+		<setvariable variable="generatedMobileConfPath" value="${generatedMobileConfPath}:brand/${storeBrand.LOWER}/${storeCountryCode.UPPER}"/>
+		<!-- Updating 20221212 to remove brand loyalty and add in loyalty/merkle-->
+		<setvariable variable="generatedMobileConfPath" value="${generatedMobileConfPath}:loyalty/merkle"/>
+		<setvariable variable="generatedMobileConfPath" value="${generatedMobileConfPath}:version1/mobile"/>
+
+		<!-- Hardware config path -->
+		<setvariable variable="generatedConfPath" value="${generatedConfPath}:hardware"/>
+		<setvariable variable="generatedConfPath" value="${generatedConfPath}:${REGMODEL_CONFIGPATH}"/>
+		<setvariable variable="generatedConfPath" value="${generatedConfPath}:${REGMODEL_MICR_CONFIGPATH}"/>
+
+
+
+
+
+		<!-- Version/patch always last -->
+		<!-- <setvariable variable="generatedConfPath" value="${generatedConfPath}:version1/patch"/> -->
+	</job>
+
+	<job name="Set Timezone" condition="!windowsXP-flag-present">
+		<executefile workingDir="c:\windows\system32" name="c:\windows\system32\cmd.exe">
+			<arg>/C</arg>
+			<arg>TZUTIL</arg>
+			<arg>/s</arg>
+			<arg>"${timeZone}"</arg>
+		</executefile>
+	</job>
+
+	<job name="Set XP Timezone" condition="windowsXP-flag-present">
+		<executefile workingDir="c:\windows\system32" name="c:\windows\system32\cmd.exe">
+			<arg>/C</arg>
+			<arg>control.exe</arg>
+			<arg>timedate.cpl,,/Z${timeZone}</arg>
+		</executefile>
+	</job>
+
+	<job name="Update Hostname of Register" condition="!windowsXP-flag-present">
+
+		<executefile workingDir="c:\windows\system32\wbem" name="c:\windows\system32\wbem\wmic.exe">
+			<arg>computersystem</arg>
+			<arg>where</arg>
+			<arg>name='${USERDOMAIN}'</arg>
+			<arg>rename</arg>
+			<arg>${regHostName}</arg>
+		</executefile>
+	</job>
+
+	<job name="Update XP DBA group" condition="windowsXP-flag-present">
+
+		<executefile workingDir="c:/windows/system32/" name="net">
+			<arg>localgroup</arg>
+			<arg>ORA_DBA</arg>
+			<arg>${USER_NAME}</arg>
+			<arg>/add</arg>
+		</executefile>
+
+	</job>
+
+	<job name="Win10 Update IP Adressing" condition="windows10-flag-present">
+		<writefile file="C:/xstinst/netsh.bat">
+			<![CDATA[
+			netsh interface ip set address name="Ethernet" static ${registerIP} 255.255.255.224 ${registerGateway} 1 
+			netsh interface ip add DNS "Ethernet" 10.108.38.101 index=1 validate=no
+			netsh interface ip add DNS "Ethernet" 10.108.38.102 index=2 validate=no
+			netsh interface ip add DNS "Ethernet" 10.40.10.11 index=3 validate=no
+			netsh interface ip add DNS "Ethernet" 10.50.10.11 index=4 validate=no
+			exit
+			]]>
+		</writefile>
+		<executefile workingDir="c:\windows\system32" name="c:\windows\system32\cmd.exe">
+			<arg>/C</arg>
+			<arg>C:\xstinst\netsh.bat</arg>
+		</executefile>
+		<!-- 20221213 Removed host entries per JCR -->
+
+		<!-- Registry settings dealing with networking -->
+		<setregistryvalue regpath="HKLM\System\currentcontrolset\services\tcpip\parameters" regkey="NV Domain" regvaltype="REG_SZ" regvalue="jcrew.com" />
+		<setregistryvalue regpath="HKLM\System\currentcontrolset\services\tcpip\parameters" regkey="SearchList" regvaltype="REG_SZ" regvalue="jcrew.com" />
+	</job>
+
+	<job name="non-Win10 Update IP Adressing" condition="!windows10-flag-present">
+		<writefile file="C:/xstinst/netsh.bat">
+			<![CDATA[
+			netsh interface ip set address name="Local Area Connection" static ${registerIP} 255.255.255.224 ${registerGateway} 1 
+			netsh interface ip add DNS "Local Area Connection" 10.108.38.101 index=1
+			netsh interface ip add DNS "Local Area Connection" 10.108.38.102 index=2
+			netsh interface ip add DNS "Local Area Connection" 10.40.10.11 index=3
+			netsh interface ip add DNS "Local Area Connection" 10.50.10.11 index=4
+			netsh interface ip set address name="Local Area Connection 2" static ${registerIP} 255.255.255.224 ${registerGateway} 1 
+			netsh interface ip add DNS "Local Area Connection 2" 10.108.38.101 index=1
+			netsh interface ip add DNS "Local Area Connection 2" 10.108.38.102 index=2
+			netsh interface ip add DNS "Local Area Connection 2" 10.40.10.11 index=3
+			netsh interface ip add DNS "Local Area Connection 2" 10.50.10.11 index=4
+			exit
+			]]>
+		</writefile>
+
+		<executefile workingDir="c:\windows\system32" name="c:\windows\system32\cmd.exe">
+			<arg>/C</arg>
+			<arg>C:\xstinst\netsh.bat</arg>
+		</executefile>
+
+		<!-- 20221213 Removed hosts entry per JCR -->
+
+		<!-- Registry settings dealing with networking -->
+		<setregistryvalue regpath="HKLM\System\currentcontrolset\services\tcpip\parameters" regkey="NV Domain" regvaltype="REG_SZ" regvalue="jcrew.com" />
+		<setregistryvalue regpath="HKLM\System\currentcontrolset\services\tcpip\parameters" regkey="SearchList" regvaltype="REG_SZ" regvalue="jcrew.com" />
+	</job>
+
+	<job name="Update IP Addressing part 2" condition="!windowsXP-flag-present" joblog="${JOB_LOGS}/ntp-setup.log">
+		
+		<executefile workingDir="C:/windows/system32/" name="C:/windows/system32/wbem/wmic.exe">
+			<arg>/node:${registerIP}</arg>
+			<arg>nicconfig</arg>
+			<arg>call</arg>
+			<arg>SetDNSSuffixSearchOrder</arg>
+			<arg>
+				<![CDATA[(jcrew.com)]]>
+			</arg>
+		</executefile>
+	</job>
+
+	<job name="Update XP Updating Time Sync" condition="windowsXP-flag-present" joblog="${JOB_LOGS}/ntp-setup.log">
+		
+		<executefile workingDir="c:\windows\system32\" name="c:\windows\system32\reg.exe">
+			<arg>import</arg>
+			<arg>${INSTALL_PATH}\sysconfig\ntp.reg</arg>
+		</executefile>
+
+		<!-- Configure the service -->
+		<executefile workingDir="C:/xstinst/sysconfig/" name="C:/xstinst/sysconfig/w32tm.exe">
+			<arg>/config</arg>
+			<arg>/update</arg>
+			<arg>/manualpeerlist:&quot;${ntpServer},0x01&quot;</arg>
+			<arg>/syncfromflags:MANUAL</arg>
+		</executefile>
+
+		<!-- Force a resync -->
+		<executefile workingDir="C:/xstinst/sysconfig/" name="C:/xstinst/sysconfig/w32tm.exe">
+			<arg>/resync</arg>
+			<arg>/rediscover</arg>
+		</executefile>
+
+	</job>
+
+
+	<job name="NTP Settings" condition="!windowsXP-flag-present" joblog="${JOB_LOGS}/ntp-setup.log">
+		<!-- NTP Settings -->
+
+		<!-- First remove any stale stuff there -->
+		<executefile workingDir="C:/windows/system32/" name="C:/windows/system32/net.exe">
+			<arg>stop</arg>
+			<arg>w32time</arg>
+		</executefile>
+		<sleep timems="2000" />
+		<executefile workingDir="C:/windows/system32/" name="C:/windows/system32/w32tm.exe">
+			<arg>/unregister</arg>
+		</executefile>
+		<sleep timems="2000" />
+
+		<!-- Create service -->
+		<executefile workingDir="C:/windows/system32/" name="C:/windows/system32/w32tm.exe">
+			<arg>/register</arg>
+		</executefile>
+
+		<!-- Remove the need to wait on a trigger to auto start... -->
+		<executefile workingDir="C:/windows/system32/" name="C:/windows/system32/sc.exe">
+			<arg>triggerinfo</arg>
+			<arg>w32time</arg>
+			<arg>delete</arg>
+		</executefile>
+
+		<!-- Make sure starts at boot -->
+		<executefile workingDir="C:/windows/system32/" name="C:/windows/system32/sc.exe">
+			<arg>config</arg>
+			<arg>w32time</arg>
+			<arg>start=auto</arg>
+		</executefile>
+
+		<!-- start (hopefully) the service -->
+		<executefile workingDir="C:/windows/system32/" name="C:/windows/system32/net.exe">
+			<arg>start</arg>
+			<arg>w32time</arg>
+		</executefile>
+
+		<!-- Configure the service -->
+		<executefile workingDir="C:/windows/system32/" name="C:/windows/system32/w32tm.exe">
+			<arg>/config</arg>
+			<arg>/update</arg>
+			<arg>/manualpeerlist:&quot;${ntpServer},0x01&quot;</arg>
+			<arg>/syncfromflags:MANUAL</arg>
+		</executefile>
+
+		<!-- Set the time sync interval to 15 minutes -->
+		<setregistryvalue regpath="HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\W32Time\TimeProviders\NTPClient" regkey="SpecialPollInterval" regvaltype="REG_DWORD" regvalue="15" />
+
+		<!-- Set the clock difference between ntp and system clock when NTP SHOULD update the local time, if time is off by more than this, set it, in seconds -->
+		<setregistryvalue regpath="HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\W32Time\TimeProviders\NTPClient" regkey="MaxAllowedPhaseOffset" regvaltype="REG_DWORD" regvalue="15" />
+
+		<!-- Force a resync -->
+		<executefile workingDir="C:/windows/system32/" name="C:/windows/system32/w32tm.exe">
+			<arg>/resync</arg>
+			<arg>/rediscover</arg>
+		</executefile>
+	</job>
+
+	<job name="Install Silverlight" condition="!windowsXP-flag-present">
+		<executefile workingDir="C:/xstinst/setup" name="C:/xstinst/setup/Silverlight_x64.exe">
+			<arg>/q</arg>
+		</executefile>
+	</job>
+
+	<job name="Install Notepad++" condition="!windowsXP-flag-present">
+		<setvariable variable="NPP_INSTALL_DIR" value="c:\program files\notepad++" casetransform="LOWER" />
+
+		<executefile workingDir="${INSTALL_PATH}/npp" name="${INSTALL_PATH}/npp/npp.7.5.8.Installer.x64.exe">
+			<arg>/S</arg>
+		</executefile>
+
+		<!-- Update final system path -->
+		<setvariable variable="modifiedPath" value="${NPP_INSTALL_DIR};${modifiedPath}"/>
+	</job>
+
+	<job name="Install 7zip" condition="!windowsXP-flag-present">
+		<setvariable variable="SEVENZIP_INSTALL_DIR" value="c:\program files\7-zip" casetransform="LOWER" />
+		<executefile workingDir="${INSTALL_PATH}/7zip" name="${INSTALL_PATH}/7zip/7z1801-x64.exe">
+			<arg>/S</arg>
+		</executefile>
+		<!-- Update final system path -->
+		<setvariable variable="modifiedPath" value="${SEVENZIP_INSTALL_DIR};${modifiedPath}"/>
+	</job>
+
+	<job name="Install Java" condition="!windowsXP-flag-present">
+		<setsystemvar variable="JAVA_HOME" value="c:\jre" />
+		<!-- Update final system path -->
+		<setvariable variable="modifiedPath" value="${JAVA_HOME}\bin;${modifiedPath}"/>
+	</job>
+
+	<job name="Install Visual Studio 2015" condition="!windowsXP-flag-present">
+		<executefile workingDir="${INSTALL_PATH}/setup" name="${INSTALL_PATH}/setup/vc_redist.x64.exe">
+			<arg>/install</arg>
+			<arg>/passive</arg>
+			<arg>/norestart</arg>
+		</executefile>
+	</job>
+
+	<job name="Install XP Visual Studio 2015" condition="windowsXP-flag-present">
+		<executefile workingDir="${INSTALL_PATH}/setup" name="${INSTALL_PATH}/setup/vc_redist.x86.exe">
+			<arg>/install</arg>
+			<arg>/passive</arg>
+			<arg>/norestart</arg>
+		</executefile>
+	</job>
+
+	<!-- Only for wave, hardware software -->
+	<job name="Install IBM Drivers" condition="REGMODEL_WAVE" joblog="${JOB_LOGS}/ibm-install.log">
+		<executefile workingDir="${INSTALL_PATH}/ibmupos" name="${INSTALL_PATH}/ibmupos/install.bat" />
+	</job>
+
+	<!-- Only for wave, hardware software -->
+	<job name="Install Symbol Scanner Software" condition="REGMODEL_WAVE" joblog="${JOB_LOGS}/symbol-install.log">
+		<executefile workingDir="${INSTALL_PATH}/visualc2012" name="${INSTALL_PATH}/visualc2012/vcredist_x64.exe">
+			<arg>/install</arg>
+			<arg>/q</arg>
+			<arg>/norestart</arg>
+		</executefile>
+		<executefile workingDir="${INSTALL_PATH}/ZebraScanner_Driver" name="c:\windows\system32\cmd.exe">
+			<arg>/c</arg>
+			<arg>start</arg>
+			<arg>/wait</arg>
+			<arg>&quot;&quot;</arg>
+			<arg>Zebra_CoreScanner_Driver_(64bit)_v3.03.0013.exe</arg>
+			<arg>/s</arg>
+		</executefile>
+	</job>
+
+	<job name="Install XP IBM Drivers" condition="REGMODEL_KIOSK" joblog="${JOB_LOGS}/XPibm-install.log">
+		<executefile workingDir="${INSTALL_PATH}/ibmupos/32bit_upos1_14_5_15174" name="${INSTALL_PATH}/ibmupos/32bit_upos1_14_5_15174/install.bat" />
+	</job>
+
+	<!-- Only for wave, hardware software -->
+	<job name="Install XP Symbol Scanner Software" condition="REGMODEL_KIOSK" joblog="${JOB_LOGS}/XP-symbol-install.log">
+		<executefile workingDir="${INSTALL_PATH}/visualc2012" name="${INSTALL_PATH}/visualc2012/vcredist_x86.exe">
+			<arg>/install</arg>
+			<arg>/q</arg>
+			<arg>/norestart</arg>
+		</executefile>
+		<executefile workingDir="${INSTALL_PATH}/ZebraScanner_Driver/XP" name="c:\windows\system32\cmd.exe">
+			<arg>/c</arg>
+			<arg>start</arg>
+			<arg>/wait</arg>
+			<arg>&quot;&quot;</arg>
+			<arg>Zebra_CoreScanner_Driver_32bit_v3.exe</arg>
+			<arg>/s</arg>
+		</executefile>
+	</job>
+
+	<job name="Wave Resolution Set" condition="REGMODEL_WAVE">
+		<executefile workingDir="c:\xstinst\setup" name="c:\xstinst\setup\nircmdc.exe">
+			<arg>setdisplay</arg>
+			<arg>1366</arg>
+			<arg>768</arg>
+			<arg>32</arg>
+			<arg>-updatereg</arg>
+			<arg>-allusers</arg>
+		</executefile>
+	</job>
+
+	<job name="HP Resolution Set" condition="REGMODEL_HPELITE">
+		<executefile workingDir="c:\xstinst\setup" name="c:\xstinst\setup\nircmdc.exe">
+			<arg>setdisplay</arg>
+			<arg>1280</arg>
+			<arg>720</arg>
+			<arg>32</arg>
+			<arg>-updatereg</arg>
+			<arg>-allusers</arg>
+		</executefile>
+	</job>
+
+	<job name="Windows2008 Resolution Set" condition="windows2008-flag-present">
+		<executefile workingDir="c:\xstinst\setup" name="c:\xstinst\setup\Qres.exe">
+			<arg>/x:1024</arg>
+			<arg>/y:768</arg>
+		</executefile>
+
+		<executefile workingDir="c:\xstinst\setup" name="c:\xstinst\setup\nircmdc.exe">
+			<arg>setdisplay</arg>
+			<arg>1024</arg>
+			<arg>768</arg>
+			<arg>32</arg>
+			<arg>-updatereg</arg>
+			<arg>-allusers</arg>
+		</executefile>
+	</job>
+
+	<!-- Only for hp elite, hardware software -->
+	<job name="Install HP Drivers" condition="REGMODEL_HPELITE" joblog="${JOB_LOGS}/hpelite-install.log">
+
+		<!-- Hp cash drawer -->
+		<executefile workingDir="${INSTALL_PATH}/hpelite/hpcash" name="${INSTALL_PATH}/installer/elevate64.exe">
+			<arg>-wait4exit</arg>
+			<arg>c:\xstinst\hpelite\hpcash\setup.exe</arg>
+			<arg>/S</arg>
+		</executefile>
+
+		<!-- Hp scanner -->
+		<executefile workingDir="${INSTALL_PATH}/hpelite/hpscandriver" name="${INSTALL_PATH}/installer/elevate64.exe">
+			<arg>-wait4exit</arg>
+			<arg>c:\xstinst\hpelite\hpscandriver\Install_x64.bat</arg>
+		</executefile>
+	</job>
+
+	<!-- Verifone driver -->
+	<job name="Verifone USB Driver" condition="!windowsXP-flag-present" joblog="${JOB_LOGS}/verifone-install.log">
+		<!-- Hp cash drawer -->
+		<executefile workingDir="${INSTALL_PATH}/verifone" name="c:\windows\system32\msiexec.exe">
+			<arg>/qn</arg>
+			<arg>/i</arg>
+			<arg>c:\xstinst\verifone\usb_installvfi64.msi</arg>
+			<arg>INSTALL_MX=1</arg>
+			<arg>PORT_MX=12</arg>
+		</executefile>
+		<executefile workingDir="${INSTALL_PATH}/verifone" name="${INSTALL_PATH}/verifone/MxDownloader_2.8.5_Setup.exe">
+			<arg>/SP-</arg>
+			<arg>/VERYSILENT</arg>
+		</executefile>
+	</job>
+
+	<job name="XP Verifone USB Driver" condition="windowsXP-flag-present" joblog="${JOB_LOGS}/XPverifone-install.log">
+		<executefile workingDir="c:/windows/system32" name="c:/windows/system32/cmd.exe">
+			<arg>/c</arg>
+			<arg>c:\xstinst\verifone\VerifoneDriver\32\silent_install.bat</arg>
+			<arg>12</arg>
+		</executefile>
+		<executefile workingDir="${INSTALL_PATH}/verifone/VerifoneDriver/32" name="${INSTALL_PATH}/verifone/VerifoneDriver/32/MxDownloader_2.8.5_Setup.exe">
+			<arg>/SP-</arg>
+			<arg>/VERYSILENT</arg>
+		</executefile>
+	</job>
+
+	<job name="vnc" joblog="${INSTALL_PATH}/vnc-install.log">
+		<!-- Insalling vnc -->
+		<executefile workingDir="${INSTALL_PATH}/vnc" name="${INSTALL_PATH}/vnc/vnc-E4_6_3-x86_x64_win32.exe">
+			<arg>/SP-</arg>
+			<arg>/VERYSILENT</arg>
+		</executefile>
+		<executefile workingDir="C:/program files/RealVNC/VNC4" name="C:/program files/RealVNC/VNC4/vncconfig">
+			<arg>-license</arg>
+			<arg>PRSLJ-DH7J2-FECSB-RH6YL-MSNHA</arg>
+		</executefile>
+	</job>
+
+	<job name="Install Oracle" condition="ORACLE12C_INSTALL_EXIST" joblog="${JOB_LOGS}/oracle-install.log">
+		<!-- DB install removed 20221209 -->
+		<executefile workingDir="c:/oracle/product/12.2.0/dbhome_xstore/bin" name="c:/oracle/product/12.2.0/dbhome_xstore/bin/netca.bat">
+			<arg>-silent</arg>
+			<arg>-responseFile</arg>
+			<arg>c:\xstinst\database\netca.rsp</arg>
+		</executefile>
+		<fileop operation="COPY" srcpath="c:/xstinst/database/listener.ora" dstpath="c:/oracle/product/12.2.0/dbhome_xstore/network/admin/listener.ora" />
+		<executefile workingDir="${INSTALL_PATH}" name="c:/oracle/product/12.2.0/dbhome_xstore/bin/orapwd.exe">
+			<arg>file=c:\oracle\product\12.2.0\dbhome_xstore\database\PWDXSTORE.ora.tmp</arg>
+			<arg>password=${sysdbpass}</arg>
+			<arg>force=y</arg>
+			<arg>format=12</arg>
+		</executefile>
+		<executefile workingDir="${INSTALL_PATH}" name="c:/oracle/product/12.2.0/dbhome_xstore/bin/orapwd.exe">
+			<arg>input_file=c:\oracle\product\12.2.0\dbhome_xstore\database\PWDXSTORE.ora.tmp</arg>
+			<arg>file=c:\oracle\product\12.2.0\dbhome_xstore\database\PWDXSTORE.ora</arg>
+		</executefile>
+
+		<executefile workingDir="c:/windows/system32/" name="net">
+			<arg>localgroup</arg>
+			<arg>ORA_DBA</arg>
+			<arg>${USER_NAME}</arg>
+			<arg>/add</arg>
+		</executefile>
+
+		<fileoperation operation="COPY" srcpath="${INSTALL_PATH}/database/listener.ora" dstpath="${oracleHome}\network\admin\listener.ora" />
+
+		<executefile workingDir="${oracleHome}" name="${oracleBin}\lsnrctl.exe">
+			<arg>stop</arg>
+		</executefile>
+		<!--<fileoperation operation="DELETE" srcpath="${oracleHome}\network\admin\listener.ora" />-->
+		<executefile workingDir="${oracleHome}" name="${oracleBin}\lsnrctl.exe">
+			<arg>start</arg>
+		</executefile>
+		<executefile workingDir="c:\windows\system32" name="c:\windows\system32\cmd.exe">
+			<arg>/C</arg>
+			<arg>echo "alter user sys identified by ${sysdbpass}; \n alter user system identified by ${sysdbpass};" | ${oracleBin}\sqlplus.exe ${sysdbuser}/Xstore123456 as sysdba</arg>
+		</executefile>
+		<executefile workingDir="c:\windows\system32" name="c:\windows\system32\cmd.exe">
+			<arg>/C</arg>
+			<arg>echo alter system register; | ${oracleBin}\sqlplus.exe ${sysdbuser}/${sysdbpass} as sysdba</arg>
+		</executefile>
+		<executefile workingDir="c:\windows\system32" name="c:\windows\system32\cmd.exe">
+			<arg>/C</arg>
+			<arg>echo alter system set audit_sys_operations=FALSE scope=spfile sid='*'; | ${oracleBin}\sqlplus.exe ${sysdbuser}/${sysdbpass} as sysdba</arg>
+		</executefile>
+		<executefile workingDir="c:\windows\system32" name="c:\windows\system32\cmd.exe">
+			<arg>/C</arg>
+			<arg>echo alter system set audit_trail=NONE scope=spfile sid='*'; | ${oracleBin}\sqlplus.exe ${sysdbuser}/${sysdbpass} as sysdba</arg>
+		</executefile>
+
+		<!-- Update final system path -->
+		<setvariable variable="modifiedPath" value="${oracleBin};${modifiedPath}"/>
+		<setsystemvar variable="ORACLE_HOME" value="${oracleHome}" />
+		<setsystemvar variable="ORACLE_SID" value="XSTORE" />
+	</job>
+
+	<job name="Install SQL DEVELOPER" condition="ORACLE12C_INSTALL_EXIST" joblog="${JOB_LOGS}/sqldev-install.log">
+		<!--removed 20221213 per JCR request-->
+
+		<!-- Update final system path -->
+		<setvariable variable="modifiedPath" value="c:\oracle\product\12.2.0\sqldeveloper;${modifiedPath}"/>
+	</job>
+
+	<job name="Setup 11g Listener" condition="!windows10-flag-present">
+		<fileop operation="COPY" srcpath="c:/xstinst/database/listener11g.ora" dstpath="c:/oracle/product/11.2.0/dbhome_1/network/admin/listener.ora" />
+		<executefile workingDir="${oracleHome}" name="${oracleBin}\lsnrctl.exe">
+			<arg>stop</arg>
+		</executefile>
+		<!-- <fileoperation operation="DELETE" srcpath="${oracleHome}\network\admin\listener.ora" /> -->
+		<executefile workingDir="${oracleHome}" name="${oracleBin}\lsnrctl.exe">
+			<arg>start</arg>
+		</executefile>
+		<executefile workingDir="c:\windows\system32" name="c:\windows\system32\cmd.exe">
+			<arg>/C</arg>
+			<arg>echo alter system register; | ${oracleBin}\sqlplus.exe ${sysdbuser}/${sysdbpass} as sysdba</arg>
+		</executefile>
+		<executefile workingDir="c:\windows\system32" name="c:\windows\system32\cmd.exe">
+			<arg>/C</arg>
+			<arg>echo alter system set audit_sys_operations=FALSE scope=spfile sid='*'; | ${oracleBin}\sqlplus.exe ${sysdbuser}/${sysdbpass} as sysdba</arg>
+		</executefile>
+		<executefile workingDir="c:\windows\system32" name="c:\windows\system32\cmd.exe">
+			<arg>/C</arg>
+			<arg>echo alter system set audit_trail=NONE scope=spfile sid='*'; | ${oracleBin}\sqlplus.exe ${sysdbuser}/${sysdbpass} as sysdba</arg>
+		</executefile>
+
+	</job>
+
+	<job name="Install EFTlink" joblog="${JOB_LOGS}/eft-install.log">
+		<executefile workingDir="c:/xstinst/eftlink/" name="c:/xstinst/eftlink/checkEftlinkInstall.bat" />
+		<executefile workingDir="${INSTALL_PATH}/eftlink" name="c:/program files/7-zip/7z.exe">
+			<arg>x</arg>
+			<arg>-oc:\</arg>
+			<arg>c:\xstinst\eftlink\eftlink_jcr.zip</arg>
+		</executefile>
+
+		<propertyfileset propertyfile="c:/eftlink/fipay.properties">
+			<property key="store.number" value="${storeNumberDepadded}" />
+		</propertyfileset>
+
+		<fileoperation operation="COPY" srcpath="c:/eftlink/keys/eftlink.public.jks" dstpath="c:/xstore/keys/eftlink.public.jks"/>
+		<fileoperation operation="COPY" srcpath="c:/eftlink/keys/pos.private.jks" dstpath="c:/xstore/keys/pos.private.jks"/>
+
+		<executefile workingDir="c:/eftlink/wrapper/bin/" name="c:/eftlink/wrapper/bin/InstallTestWrapper-NT.bat" />
+
+	</job>
+
+	<job name="Update Java for nonXP EFTlink" condition="!windowsXP-flag-present" joblog="${JOB_LOGS}/XP-eft-install.log">
+
+		<propertyfileset propertyfile="c:\eftlink\wrapper\conf\wrapper.conf">
+			<property key="wrapper.java.command" value="c:\jre_32\bin\java.exe" />
+		</propertyfileset>
+
+		<executefile workingDir="c:/windows/system32/" name="sc.exe">
+			<arg>start</arg>
+			<arg>OPI</arg>
+		</executefile>
+	</job>
+
+	<job name="Update Java for XP EFTlink" condition="windowsXP-flag-present" joblog="${JOB_LOGS}/XP-eft-install.log">
+
+		<propertyfileset propertyfile="c:\eftlink\wrapper\conf\wrapper.conf">
+			<property key="wrapper.java.command" value="c:\jre\bin\java.exe" />
+		</propertyfileset>
+
+		<executefile workingDir="c:/windows/system32/" name="sc.exe">
+			<arg>start</arg>
+			<arg>OPI</arg>
+		</executefile>
+	</job>
+
+	<job name="Install Fipay" joblog="${JOB_LOGS}/fipay-install.log">
+		<executefile workingDir="${INSTALL_PATH}/fipay" name="${INSTALL_PATH}/fipay/JCrew-WO6697-FIPay-Mx925-USB-EFT-R38378-Verifone_FIPay-Release_38378-20200904_100028.exe">
+			<arg>/SILENT</arg>
+			<arg>/NORESTART</arg>
+		</executefile>
+		<sleep timems="30000" />
+		<propertyfileset propertyfile="c:/AJBFIPAY/fipayeps_def.cfg">
+			<property key="PINPAD_COMPORT" value="&quot;12&quot;" />
+			<property key="RTS__NODE" value="&quot;F0${storeNumberPadded}${registerNumberPaddedTwo}&quot;" />
+			<property key="RTS1_IP" value="&quot;10.108.33.46&quot;" />
+			<property key="RTS2_IP" value="&quot;10.108.33.49&quot;" />
+			<property key="RTS3_ENABLED" value="&quot;N&quot;" />
+		</propertyfileset>
+		<sleep timems="30000" />
+		<executefile workingDir="${INSTALL_PATH}/fipay" name="c:/windows/system32/cmd.exe">
+			<arg>/c</arg>
+			<arg>c:\xstinst\fipay\file1.bat</arg>
+			<arg>${regHostName}</arg>
+		</executefile>
+		<sleep timems="60000" />
+		<executefile workingDir="c:/AJBFIPAY" name="c:/windows/system32/cmd.exe">
+			<arg>/c</arg>
+			<arg>c:\AJBFIPAY\ip_swap.bat</arg>
+		</executefile>
+	</job>
+
+	<job name="Copy fipayepsx for WinXP" condition="windowsXP-flag-present" joblog="${JOB_LOGS}/winxp-copy-fipay.log">
+
+		<executefile workingDir="c:/windows/system32/" name="sc.exe">
+			<arg>stop</arg>
+			<arg>ajbfipay</arg>
+		</executefile>
+		<sleep timems="30000" />
+		<fileoperation operation="DELETE" srcpath="c:/AJBFIPAY/fipayepsx.exe" />
+		<sleep timems="30000" />
+		<fileoperation operation="COPY" srcpath="c:/xstinst/fipay/XP/fipayepsx.exe" dstpath="c:/AJBFIPAY/fipayepsx.exe"/>
+	
+	</job>
+	
+	
+	<!-- Extract out the library needed to encrypt OBF files for mobile -->
+	<job name="Xmobile prerequisites" condition="isMobileServer">
+		<executefile workingDir="${INSTALL_PATH}/xstore" name="c:\windows\system32\cmd.exe">
+			<arg>/c</arg>
+			<arg>c:\xstinst\xstore\mobile_obf.bat</arg>
+			<arg>${sevenz}</arg>
+			<arg>c:\jre\bin\java.exe</arg>
+			<arg>&quot;${mobilekeypassword}&quot;</arg>
+		</executefile>
+
+		<propertyfileread propertyfile="${INSTALL_PATH}/xstore/mobile_obf.properties">
+			<property key="mobileobf" variable="mobilekeypassword_obf" />
+		</propertyfileread>
+	</job>
+
+	<!-- Xstore install -->
+	<!-- This must be done before xenv as to use the encryption feature, xstore must be installed... -->
+	<job name="Install Xstore" joblog="${JOB_LOGS}/xstore-install.log">
+
+		<executefile workingDir="${INSTALL_PATH}/xstore" name="${INSTALL_PATH}/xstore/update_build_cip.bat" />
+
+		<propertyfileset propertyfile="${INSTALL_PATH}/xstore/ant.install.properties">
+			<property key="advanced.installation" value="none" />
+			<property key="installDir" value="c:\xstore\" />
+			<property key="dbInstallDir" value="c:\xstoredb\" />
+
+			<property key="install.env" value="${XSTORE_TESTPROD}" />
+			<property key="customerId.salt" value="${customerSalt}" />
+			<property key="customerId" value="${customerCode}" />
+			<property key="orgId" value="${orgid}" />
+			<property key="rtlLocId" value="${storeNumberDepadded}" />
+			<property key="terminalId" value="${registerNumberDepadded}" />
+
+			<!-- Country stuff -->
+			<property key="countryId" value="${storeCountryCode.UPPER}" />
+			<property key="regionId" value="${storeRegion.UPPER}" />
+			<property key="currencyId" value="${storeCurrency.UPPER}" />
+			<property key="depBank" value="${storeBank}" />
+			<property key="bankAcct" value="${storeBankAcct.UPPER}" />
+
+			<!-- Disabled to allow encrypt.bat to install, reinstall after with true -->
+			<property key="localDbEnabled" value="false" />
+			<property key="advanced.installation" value="none" />
+			<property key="path.config" value="${generatedConfPath}" />
+		</propertyfileset>
+
+		<!-- Xstore (encrypt.bat) install -->
+		<!-- This must be done first as to use the encryption feature, xstore must be installed... -->
+		<executefile workingDir="${INSTALL_PATH}/xstore" name="${INSTALL_PATH}/xstore/install.bat" />
+
+		<sleep timems="2000" />
+		<fileoperation operation="DELETE" srcpath="c:/environment/tmp/xenv_eng.anchor" />
+		<fileoperation operation="DELETE" srcpath="c:/environment/tmp/xenv_ui.anchor" />
+		<fileoperation operation="DELETE" srcpath="c:/environment/tmp/sct" />
+		<fileoperation operation="DELETE" srcpath="c:/xstore/tmp/xstore.anchor" />
+		<fileoperation operation="DELETE" srcpath="c:/xstore/tmp/sct" />
+		<fileoperation operation="DELETE" srcpath="c:/xstore/tmp/dataserver.anchor" />
+		<fileoperation operation="DELETE" srcpath="c:/xstore/tmp/dataloader.anchor" />
+		<sleep timems="8000" />
+
+		<!-- Enable the db for actual install -->
+		<propertyfileset propertyfile="${INSTALL_PATH}/xstore/ant.install.properties">
+			<property key="localDbEnabled" value="true" />
+			<property key="advanced.installation" value="${INSTALL_XMOBILE_ADVINST}" />
+
+			<!-- Datasource -->
+			<property key="db.local" value="true" />
+			<property key="local.host" value="${localHost}" />
+			<property key="local.db" value="xstore" />
+			<property key="local.db.user" value="${localdbuser}" xstencrypt="true"/>
+			<property key="local.db.pwd" value="${localdbpass}" xstencrypt="true"/>
+
+			<property key="db.storebackup" value="false" />
+
+			<property key="db.training" value="true" />
+			<property key="training.host" value="${localHost}" />
+			<property key="training.db" value="xstore" />
+			<property key="training.db.user" value="${trainingdbuser}" xstencrypt="true"/>
+			<property key="training.db.pwd" value="${trainingdbpass}" xstencrypt="true"/>
+
+			<property key="db.repl" value="true" />
+			<property key="repl.host" value="${localHost}" />
+			<property key="repl.db" value="xstore" />
+			<property key="repl.db.user" value="${repldbuser}" xstencrypt="true"/>
+			<property key="repl.db.pwd" value="${repldbpass}" xstencrypt="true"/>
+
+			<property key="db.storeprimary" value="true" />
+			<property key="storeprimary.host" value="${primaryHost}" />
+			<property key="storeprimary.db" value="xstore" />
+			<property key="storeprimary.db.user" value="${primarydbuser}" xstencrypt="true"/>
+			<property key="storeprimary.db.pwd" value="${primarydbpass}" xstencrypt="true"/>
+
+			<property key="xcenter.host" value="${xcenterhost}" />
+			<property key="xcenter.port" value="${xcenterport}" />
+
+			<property key="db.relate" value="false" />
+			<property key="master.db.user" value="${masterdbuser}" xstencrypt="true"/>
+			<property key="master.db.pwd" value="${masterdbpass}" xstencrypt="true"/>
+
+			<property key="owner.db.user" value="${ownerdbuser}" xstencrypt="true"/>
+			<property key="owner.db.pwd" value="${ownerdbpass}" xstencrypt="true"/>
+
+			<property key="dbadmin.user" value="${admindbuser}" xstencrypt="true"/>
+			<property key="dbadmin.pwd" value="${admindbpass}" xstencrypt="true"/>
+
+			<!-- These need to be off not used -->
+			<property key="db.sim" value="false" />
+			<property key="db.rxm" value="false" />
+			<property key="db.avs" value="false" />
+			<property key="db.locate" value="false" />
+			<property key="db.serenade" value="false" />
+			<property key="db.opera" value="false" />
+
+			<!-- Mobile -->
+			<property key="mobileStartDisabled" value="${INSTALL_XMOBILE_SERVER_DISABLED}" />
+			<property key="tabletStartDisabled" value="${INSTALL_XMOBILE_SERVER_DISABLED}" />
+			<property key="thinStartDisabled" value="false" />
+			<property key="xstore.mobile" value="${INSTALL_XMOBILE_SERVER}" />
+			<property key="handheldTerminalId" value="${mobileServerRegNum}" />
+			<property key="tabletTerminalId" value="${mobileServerRegNum}" />
+			<property key="thinTerminalId" value="${mobileServerRegNum}" />
+			<property key="mobileKeyAlias" value="${mobileKeyAlias}" />
+			<property key="mobileKeystorePassword" value="${mobilekeypassword_obf}" xstencrypt="false"/>
+			<property key="mobileRsaPrivateKeyFilePath" value="c:\xstore-mobile\mobile\xstore_mobile.keystore" />
+			<property key="mobileRsaPrivateKeyPassword" value="${mobilekeypassword_obf}" xstencrypt="false" />
+			<property key="mobileInstallDir" value="c:\xstore-mobile\" xstencrypt="false" />
+			<property key="mobile.path.config" value="${generatedMobileConfPath}" />
+		</propertyfileset>
+
+		<!-- Match db passwords -->
+		<writefile file="${INSTALL_PATH}/sysconfig/setdb_passwords.sql">
+			<![CDATA[
+			alter user ${posdbuser} identified by "${posdbpass}";
+			alter user ${ownerdbuser} identified by "${ownerdbpass}";
+			alter user ${repldbuser} identified by "${repldbpass}";
+			alter user ${trainingdbuser} identified by "${trainingdbpass}";
+			alter user ${masterdbuser} identified by "${masterdbpass}";
+			alter user sys identified by "${sysdbpass}";
+			alter user system identified by "${sysdbpass}";
+			alter user sys account unlock;
+			alter user system account unlock;
+			exit 
+			]]>
+		</writefile>
+
+		<executefile workingDir="${INSTALL_PATH}" name="${sqlplusCmd}">
+			<arg>/</arg>
+			<arg>as</arg>
+			<arg>sysdba</arg>
+			<arg>@c:\xstinst\sysconfig\setdb_passwords.sql</arg>
+		</executefile>
+
+		<executefile workingDir="${INSTALL_PATH}/xstore" name="${INSTALL_PATH}/xstore/install.bat" />
+
+		<sleep timems="5000" />
+		<fileoperation operation="DELETE" srcpath="c:/environment/tmp/xenv_eng.anchor" />
+		<fileoperation operation="DELETE" srcpath="c:/environment/tmp/xenv_ui.anchor" />
+		<fileoperation operation="DELETE" srcpath="c:/environment/tmp/sct" />
+		<fileoperation operation="DELETE" srcpath="c:/xstore/tmp/xstore.anchor" />
+		<fileoperation operation="DELETE" srcpath="c:/xstore/tmp/sct" />
+		<fileoperation operation="DELETE" srcpath="c:/xstore/tmp/dataserver.anchor" />
+		<fileoperation operation="DELETE" srcpath="c:/xstore/tmp/dataloader.anchor" />
+		<sleep timems="8000" />
+
+		<!-- Configure after xstore is installed because we are auto-encrypting passwords using Xstore -->
+		<propertyfileset propertyfile="c:/xstore/updates/base-xstore.properties">
+			<property key="storeprimary.db.user" value="${primarydbuser}" xstencrypt="true" />
+			<property key="storeprimary.db.pwd" value="${primarydbpass}" xstencrypt="true" />
+			<property key="local.db.user" value="${localdbuser}" xstencrypt="true" />
+			<property key="local.db.pwd" value="${localdbpass}" xstencrypt="true" />
+			<property key="repl.db.user" value="${repldbuser}" xstencrypt="true" />
+			<property key="repl.db.pwd" value="${repldbpass}" xstencrypt="true" />
+			<property key="training.db.user" value="${trainingdbuser}" xstencrypt="true" />
+			<property key="training.db.pwd" value="${trainingdbpass}" xstencrypt="true" />
+			<property key="master.db.user" value="${masterdbuser}" xstencrypt="true" />
+			<property key="master.db.pwd" value="${masterdbpass}" xstencrypt="true" />
+			<property key="dtv.datasource.xcenter.Enabled" value="true"/>
+			<property key="xcenter.db.user" value="${xcenteruser}" xstencrypt="true" />
+			<property key="xcenter.db.pwd" value="${xcenterpass}" xstencrypt="true" />
+			<property key="dtv.datasource.xcenter.keystorePwd" value="allgoodthings" xstencrypt="true" />
+			<property key="dtv.datasource.xcenter.truststorePwd" value="allgoodthings" xstencrypt="true" />
+			<property key="dtv.config.path" value="${generatedConfPath}" />
+			<property key="dtv.pos.i18n.translation" value="dtv/i18n/translations;version1/i18n/translations;cust/translations;cust/loyalty/translations;cust/loyalty/award/translations;order/translations;version1/translations;brand/${xstoreBrand}/translations;xadmin/translations;MASTER/DEFAULT/translations;version1/patch/translations" />
+		</propertyfileset>
+
+		<fileoperation operation="COPY" srcpath="c:/xstinst/xstore-properties/${store_propfile}/xstore.properties" dstpath="c:/xstore/updates/xstore.properties"/>
+
+		<!--20221203 Remove per JCR No longer needed-->
+
+		<executefile workingDir="c:/xstore" name="c:/xstore/baseconfigure.bat" />
+		<executefile workingDir="c:/xstore" name="c:/xstore/configure.bat" />
+	</job>
+
+	<job name="Install Xenv" joblog="${JOB_LOGS}/xenv-install.log">
+		<executefile workingDir="${INSTALL_PATH}/xenv" name="${INSTALL_PATH}/xenv/update_build_cip.bat" />
+
+		<propertyfileset propertyfile="${INSTALL_PATH}/xenv/ant.install.properties">
+			<property key="installDir" value="c:\environment" />
+
+			<property key="clientCode" value="${customerCode}" />
+			<property key="clientCode.salt" value="${customerSalt}" />
+
+			<property key="keystorePassword" value="allgoodthings" xstencrypt="true" />
+			<property key="xstoreKeystorePassword" value="allgoodthings" xstencrypt="true" />
+			<property key="truststorePassword" value="allgoodthings" xstencrypt="true" />
+			<property key="xstoreTruststorePassword" value="allgoodthings" xstencrypt="true" />
+
+			<property key="leadreg" value="${primaryHost}" />
+			<property key="rtlLocId" value="${storeNumberDepadded}" />
+			<property key="terminalId" value="${registerNumberDepadded}" />
+			<property key="storeName" value="${storeName}" />
+
+			<property key="storeprimary.host" value="${primaryHost}" />
+			<property key="dtv.primary.db.user" value="${primarydbuser}" xstencrypt="true" />
+			<property key="dtv.primary.db.password" value="${primarydbpass}" xstencrypt="true" />
+
+			<property key="training.host" value="localhost" />
+			<property key="master.host" value="localhost" />
+
+			<property key="storeprimary.db" value="XSTORE" />
+			<property key="training.db" value="XSTORE" />
+			<property key="master.db" value="XSTORE" />
+
+			<property key="uploadHttpServerURL" value="https://${apachehost}:${apacheport}/upload" />
+			<property key="uploadHttpServerUsername" value="${apacheusername}" xstencrypt="true" />
+			<property key="uploadHttpServerPassword" value="${apachepassword}" xstencrypt="true" />
+
+			<property key="orgId" value="${orgid}" />
+			<property key="dbInstance" value="XSTORE" />
+
+			<property key="enableTouch" value="false" />
+
+			<!-- Oracle logic, true is off, false is on -->
+			<property key="envpoll" value="true" />
+			<property key="poll1" value="false" />
+			<property key="poll2" value="false" />
+			<property key="gui_enabled" value="true" />
+			<property key="xservices_enabled" value="false" />
+			<property key="xstore_thin_client_server_enabled" value="false" />
+			<property key="xstore_mobile_tablet_enabled" value="${INSTALL_XMOBILE_SERVER_DISABLED}" />
+			<property key="xstore_mobile_enabled" value="${INSTALL_XMOBILE_SERVER_DISABLED}" />
+
+			<property key="local.db.user" value="${localdbuser}" xstencrypt="true" />
+			<property key="local.db.pwd" value="${localdbpass}" xstencrypt="true" />
+			<property key="repl.db.user" value="${repldbuser}" xstencrypt="true" />
+			<property key="repl.db.pwd" value="${repldbpass}" xstencrypt="true" />
+			<property key="training.db.user" value="${trainingdbuser}" xstencrypt="true" />
+			<property key="training.db.pwd" value="${trainingdbpass}" xstencrypt="true" />
+			<property key="master.db.user" value="${masterdbuser}" xstencrypt="true" />
+			<property key="master.db.pwd" value="${masterdbpass}" xstencrypt="true" />
+			<property key="owner.db.user" value="${masterdbuser}" xstencrypt="true" />
+			<property key="owner.db.pwd" value="${masterdbpass}" xstencrypt="true" />
+			<property key="dbadmin.user" value="${admindbuser}" xstencrypt="true" />
+			<property key="dbadmin.pwd" value="${admindbpass}" xstencrypt="true" />
+
+			<property key="country" value="${storeCountryCode.UPPER}" />
+			<property key="language" value="${storeLanguageCode}" />
+			<property key="enableTouch" value="false" />
+		</propertyfileset>
+
+		<!-- Install Xenv -->
+		<executefile workingDir="${INSTALL_PATH}/xenv" name="${INSTALL_PATH}/xenv/install.bat" />
+		<fileoperation operation="DELETE" srcpath="c:/environment/tmp/xenv_eng.anchor" />
+		<fileoperation operation="DELETE" srcpath="c:/environment/tmp/xenv_ui.anchor" />
+		<fileoperation operation="DELETE" srcpath="c:/environment/tmp/sct" />
+		<sleep timems="5000" />
+
+		<!-- No clue why this needs to be set and is blank, something wrong with Oracles build process, base works fine, customer build doesnt.... -->
+		<propertyfileset propertyfile="c:/environment/cust_config/version1/local.properties">
+			<property key="environment.lead.port" value="9096" />
+			<property key="poll1.disabled" value="true" />
+			<property key="poll2.disabled" value="true" />
+			<property key="atom.wait-for-trickle-polline.disabled" value="true" />
+			<property key="xcenter.servlet.rooturl" value="https://${xcenterhost}:${xcenterport}" />
+			<property key="xcenter.servlet.username" value="${xcenteruser}" xstencrypt="true" />
+			<property key="xcenter.servlet.password" value="${xcenterpass}" xstencrypt="true" />
+
+			<!--20221212 - 17.0.4 additions-->
+			<property key="update.required_period" value="0" />
+			<property key="update.grace_period" value="0" />
+			<property key="xstore.datasource.local.driver" value="oracle.jdbc.pool.OracleDataSource" />
+			<property key="xstore.datasource.local.url" value="jdbc:oracle:thin:@localhost:1521:xstore" />
+			<property key="xstore.datasource.local.username" value="${localdbuser}" xstencrypt="true" />
+			<property key="xstore.datasource.local.password" value="${localdbpass}" xstencrypt="true" />
+
+		</propertyfileset>
+
+		<propertyfileset propertyfile="c:/environment/system.properties">
+			<property key="dtv.local.db.user" value="${localdbuser}" xstencrypt="true" />
+			<property key="dtv.local.db.password" value="${localdbpass}" xstencrypt="true" />
+			<property key="dtv.primary.db.user" value="${primarydbuser}" xstencrypt="true" />
+			<property key="dtv.primary.db.password" value="${primarydbpass}" xstencrypt="true" />
+			<property key="dtv.training.db.user" value="${trainingdbuser}" xstencrypt="true" />
+			<property key="dtv.training.db.password" value="${trainingdbpass}" xstencrypt="true" />
+			<property key="dtv.master.db.user" value="${masterdbuser}" xstencrypt="true" />
+			<property key="dtv.master.db.password" value="${masterdbpass}" xstencrypt="true" />
+
+			<property key="xstore.datasource.local.user" value="${localdbuser}" xstencrypt="true" />
+			<property key="xstore.datasource.local.password" value="${localdbpass}" xstencrypt="true" />
+			<property key="xstore.datasource.storeprimary.user" value="${primarydbuser}" xstencrypt="true" />
+			<property key="xstore.datasource.storeprimary.password" value="${primarydbpass}" xstencrypt="true" />
+			<property key="xstore.datasource.master.user" value="${masterdbuser}" xstencrypt="true" />
+			<property key="xstore.datasource.master.password" value="${masterdbpass}" xstencrypt="true" />
+			<property key="xstore.datasource.training.user" value="${trainingdbuser}" xstencrypt="true" />
+			<property key="xstore.datasource.training.password" value="${trainingdbpass}" xstencrypt="true" />
+
+			<property key="dtv.local.db.url" value="jdbc:oracle:thin:@${localHost}:1521:xstore" />
+			<property key="dtv.storeprimary.db.url" value="jdbc:oracle:thin:@${primaryHost}:1521:xstore" />
+			<property key="dtv.master.db.url" value="jdbc:oracle:thin:@${localHost}:1521:xstore" />
+			<property key="dtv.training.db.url" value="jdbc:oracle:thin:@${localHost}:1521:xstore" />
+
+			<property key="xstore.datasource.local.url" value="jdbc:oracle:thin:@${localHost}:1521:xstore" />
+			<property key="xstore.datasource.master.url" value="jdbc:oracle:thin:@${localHost}:1521:xstore" />
+			<property key="xstore.datasource.training.url" value="jdbc:oracle:thin:@${localHost}:1521:xstore" />
+			<property key="xstore.datasource.primary.url" value="jdbc:oracle:thin:@${primaryHost}:1521:xstore" />
+		</propertyfileset>
+
+		<propertyfileset propertyfile="c:/environment/updates/base-xstore.properties">
+			<property key="dtv.local.db.user" value="${localdbuser}" xstencrypt="true" />
+			<property key="dtv.local.db.password" value="${localdbpass}" xstencrypt="true" />
+			<property key="installx.role" value="${XENV_ROLE}" />
+			<property key="installx.type" value="xfr" />
+			<property key="installx.helpdeskNumber" value="${helpdeskNumber}" />
+			<property key="installx.guiDisabled" value="false" />
+			<property key="installx.getRemoteBackupDisabled" value="false" />
+			<property key="installx.country" value="${storeCountryCode.UPPER}" />
+			<property key="installx.language" value="${storeLanguageCode}" />
+
+			<property key="master.db.url" value="jdbc:oracle:thin:@${localHost}:1521:xstore" xstencrypt="false" />
+			<property key="master.db.user" value="${masterdbuser}" xstencrypt="true" />
+			<property key="master.db.pwd" value="${masterdbpass}" xstencrypt="true" />
+
+			<property key="training.db.url" value="jdbc:oracle:thin:@${localHost}:1521:xstore" xstencrypt="false" />
+			<property key="training.db.user" value="${trainingdbuser}" xstencrypt="true" />
+			<property key="training.db.pwd" value="${trainingdbpass}" xstencrypt="true" />
+
+			<property key="installx.xstore_mobile_disabled" value="jdbc:oracle:thin:@${localHost}:1521:xstore" xstencrypt="false" />
+			<property key="training.db.pwd" value="${trainingdbpass}" xstencrypt="true" />
+
+			<property key="installx.xstore_mobile_disabled" value="${INSTALL_XMOBILE_SERVER_DISABLED}" />
+			<property key="installx.xstore_mobile_tablet_disabled" value="${INSTALL_XMOBILE_SERVER_DISABLED}" />
+			<property key="installx.xstore_thin_client_server_disabled" value="true" />
+			<property key="installx.xstore_thin_client_disabled" value="true" />
+			<property key="installx.xservices_disabled" value="true" />
+
+			<!-- Dont disable touch, this means add the F button labels back to Xenv buttons -->
+			<property key="installx.enableTouch" value="false" />
+
+			<property key="installx.uploadHttpServerURL" value="https://${apachehost}:${apacheport}/upload" />
+			<property key="installx.uploadHttpServerUsername" value="${apacheusername}" xstencrypt="true" />
+			<property key="installx.uploadHttpServerPassword" value="${apachepassword}" xstencrypt="true" />
+		</propertyfileset>
+
+		<fileoperation operation="DELETE" srcpath="c:/environment/tmp/xenv_eng.anchor" />
+		<fileoperation operation="DELETE" srcpath="c:/environment/tmp/xenv_ui.anchor" />
+		<fileoperation operation="DELETE" srcpath="c:/environment/tmp/sct" />
+		<sleep timems="8000" />
+
+		<executefile workingDir="c:/environment" name="c:/environment/configure.bat" />
+
+		<fileoperation operation="DELETE" srcpath="c:/environment/cust_config/version1/passwds" />
+		<sleep timems="10000" />
+		<fileop operation="COPY" srcpath="c:/xstinst/xenv/passwds" dstpath="c:/environment/cust_config/version1/passwds" />
+
+		<writefile file="c:/xstinst/sysconfig/createxenvfolders.bat">
+			<![CDATA[
+			if not exist c:\environment\marker (md c:\environment\marker)
+			if not exist c:\environment\res\data (md c:\environment\res\data)
+			exit
+			]]>
+		</writefile>
+
+		<executefile workingDir="${INSTALL_PATH}/sysconfig" name="c:/windows/system32/cmd.exe">
+			<arg>/c</arg>
+			<arg>${INSTALL_PATH}/sysconfig/createxenvfolders.bat</arg>
+		</executefile>
+
+	</job>
+
+	<job name="Mobile Post Install Configuration" condition="INSTALL_XMOBILE_TABLET">
+		<propertyfileset propertyfile="c:/environment/updates/base-xstore.properties">
+			<property key="installx.xstore_mobile_tablet_disabled" value="false"/>
+		</propertyfileset>
+
+		<fileoperation operation="DELETE" srcpath="c:/environment/tmp/xenv_eng.anchor" />
+		<fileoperation operation="DELETE" srcpath="c:/environment/tmp/xenv_ui.anchor" />
+		<fileoperation operation="DELETE" srcpath="c:/environment/tmp/sct" />
+		<sleep timems="8000" />
+		<executefile workingDir="c:/environment" name="c:/environment/configure.bat" />
+
+		<executefile workingDir="c:/xstore-mobile" name="c:/xstore-mobile/mobile_baseconfigure.bat" />
+		<executefile workingDir="c:/xstore-mobile" name="c:/xstore-mobile/mobile_configure.bat" />
+
+		<fileop operation="COPY" srcpath="c:/xstinst/xstore/mobile/xstore_mobile.keystore" dstpath="c:/xstore-mobile/mobile/xstore_mobile.keystore" />
+	</job>
+
+
+	<job name="Load Xstore MNTs" joblog="${JOB_LOGS}/mnt-load.log">
+		 <executefile workingDir="${INSTALL_PATH}/mnt" name="${INSTALL_PATH}/mnt/loadmnts.bat" /> 
+	</job>
+
+	<job name="Printer Install" condition="!windowsXP-flag-present" joblog="${JOB_LOGS}/printer-install.log">
+		<!-- Install printers -->
+		<executefile workingDir="${INSTALL_PATH}/printer" name="${INSTALL_PATH}/printer/install.bat">
+			<arg>${ipSchema}</arg>
+		</executefile>
+	</job>
+
+	<job name="XP Printer Install" condition="windowsXP-flag-present" joblog="${JOB_LOGS}/printer-install.log">
+		<!-- Install printers -->
+		<executefile workingDir="${INSTALL_PATH}/printer" name="${INSTALL_PATH}/printer/XPinstall.bat">
+			<arg>${ipSchema}</arg>
+		</executefile>
+	</job>
+
+	<job name="Change MX925 com ports nonWin10" condition="!windows10-flag-present" joblog="${JOB_LOGS}/nonwin10-comports-mx925-install.log">
+		
+		<writefile file="c:/xstinst/sysconfig/changecom.bat">
+			<![CDATA[
+			c:\xstinst\installer\elevate.exe -wait4exit c:/windows/system32/WindowsPowerShell/v1.0/powershell.exe -ExecutionPolicy UnRestricted -File c:/xstinst/sysconfig/changecom-devid2.ps1 "USB\VID_11CA&PID_0201" COM12
+			exit
+			]]>
+		</writefile>
+
+		<executefile workingDir="${INSTALL_PATH}/sysconfig" name="c:/windows/system32/cmd.exe">
+			<arg>/c</arg>
+			<arg>${INSTALL_PATH}/sysconfig/changecom.bat</arg>
+		</executefile>
+
+	</job>
+
+	<job name="Change MX925 com ports" condition="windows10-flag-present" joblog="${JOB_LOGS}/comports-mx925-install.log">
+		
+		<executefile workingDir="${INSTALL_PATH}/sysconfig" name="c:/windows/system32/WindowsPowerShell/v1.0/powershell.exe">
+			<arg>-ExecutionPolicy</arg>
+			<arg>UnRestricted</arg>
+			<arg>-File</arg>
+			<arg>${INSTALL_PATH}/sysconfig/changecom-devid.ps1</arg>
+			<arg>
+				<![CDATA[USB\VID_11CA&PID_0201]]>
+			</arg>
+			<arg>COM12</arg>
+		</executefile>
+	</job>
+
+	<job name="Change HP com ports" condition="REGMODEL_HPELITE" joblog="${JOB_LOGS}/hpcomport-configure.log">
+		<!-- Pole display -->
+		<executefile workingDir="c:/windows/system32" name="pnputil.exe">
+			<arg>-a</arg>
+			<arg>${INSTALL_PATH}/xstore/hppole/HP2SER2PL.inf</arg>
+		</executefile>
+
+		<sleep timems="5000" />
+
+		<executefile workingDir="${INSTALL_PATH}/sysconfig" name="c:/windows/system32/WindowsPowerShell/v1.0/powershell.exe">
+			<arg>-ExecutionPolicy</arg>
+			<arg>UnRestricted</arg>
+			<arg>-File</arg>
+			<arg>${INSTALL_PATH}/sysconfig/changecom-devid.ps1</arg>
+			<arg>
+				<![CDATA[USB\VID_03F0&PID_0956]]>
+			</arg>
+			<arg>COM14</arg>
+		</executefile>
+
+		<executefile workingDir="${INSTALL_PATH}/sysconfig" name="c:/windows/system32/WindowsPowerShell/v1.0/powershell.exe">
+			<arg>-ExecutionPolicy</arg>
+			<arg>UnRestricted</arg>
+			<arg>-File</arg>
+			<arg>${INSTALL_PATH}/sysconfig/changecom-devid.ps1</arg>
+			<arg>
+				<![CDATA[USB\VID_05D9&PID_C776]]>
+			</arg>
+			<arg>COM10</arg>
+		</executefile>
+
+		<executefile workingDir="${INSTALL_PATH}/sysconfig" name="c:/windows/system32/WindowsPowerShell/v1.0/powershell.exe">
+			<arg>-ExecutionPolicy</arg>
+			<arg>UnRestricted</arg>
+			<arg>-File</arg>
+			<arg>${INSTALL_PATH}/sysconfig/changecom-devid.ps1</arg>
+			<arg>
+				<![CDATA[USB\VID_03F0&PID_0157]]>
+			</arg>
+			<arg>COM10</arg>
+		</executefile>
+
+		<executefile workingDir="${INSTALL_PATH}/sysconfig" name="c:/windows/system32/WindowsPowerShell/v1.0/powershell.exe">
+			<arg>-ExecutionPolicy</arg>
+			<arg>UnRestricted</arg>
+			<arg>-File</arg>
+			<arg>${INSTALL_PATH}/sysconfig/changecom-devid.ps1</arg>
+			<arg>
+				<![CDATA[USB\VID_03F0&PID_0766]]>
+			</arg>
+			<arg>COM15</arg>
+		</executefile>
+
+		<executefile workingDir="c:\windows\system32" name="c:\windows\system32\reg.exe">
+			<arg>import</arg>
+			<arg>${INSTALL_PATH}\xstore\hp_comport.reg</arg>
+		</executefile>
+	</job>
+
+	<job name="Power Settings" joblog="${JOB_LOGS}/power-settings.log">
+		<!-- Set Power settings -->
+		<executefile workingDir="${INSTALL_PATH}/sysconfig" name="${INSTALL_PATH}/sysconfig/power.bat" />
+	</job>
+
+	<job name="Removing Uninstalled Javas" joblog="${JOB_LOGS}/uninstaller-remove.log">
+		<!-- Removing invalid java uninstallers -->
+		<executefile workingDir="${INSTALL_PATH}/sysconfig" name="${INSTALL_PATH}/sysconfig/removeinvaliduninstallers.cmd" />
+	</job>
+
+	<job name="Load User Registry" joblog="${JOB_LOGS}/user-lockdown.log">
+		<setregistryvalue regpath="HKEY_USERS\.Default\System\CurrentControlSet\Policies" regkey="NtfsEncryptPagingFile" regvaltype="REG_SZ" regvalue="-" />
+		<setregistryvalue regpath="HKEY_USERS\.Default\Software\Microsoft\CTF\LangBar" regkey="ShowStatus" regvaltype="REG_DWORD" regvalue="3" />
+		<setregistryvalue regpath="HKEY_USERS\.Default\Software\Microsoft\Windows\CurrentVersion\Internet Settings" regkey="SecureProtocols" regvaltype="REG_DWORD" regvalue="2728" />
+		<setregistryvalue regpath="HKEY_USERS\.Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" regkey="HideFileExt " regvaltype="REG_DWORD" regvalue="0" />
+
+		<!-- Sticky keys goodbye! -->
+		<setregistryvalue regpath="HKEY_USERS\.Default\Control Panel\Accessibility\StickyKeys" regkey="Flags" regvaltype="REG_SZ" regvalue="506" />
+		<setregistryvalue regpath="HKEY_USERS\.Default\Control Panel\Accessibility\Keyboard Response" regkey="Flags" regvaltype="REG_SZ" regvalue="122" />
+		<setregistryvalue regpath="HKEY_USERS\.Default\Control Panel\Accessibility\ToggleKeys" regkey="Flags" regvaltype="REG_SZ" regvalue="58" />
+
+		<!-- Intel Hotkeys -->
+		<setregistryvalue regpath="HKEY_USERS\.Default\Software\INTEL\DISPLAY\IGFXCUI\HotKeys" regkey="Enable" regvaltype="REG_DWORD" regvalue="0" />
+	</job>
+
+	<job name="System Registry Lockdown" joblog="${JOB_LOGS}/system-registry-lockdown.log">
+
+		<!-- Lock screen settings -->
+		<setregistryvalue regpath="HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\System" regkey="DisableLockWorkstation" regvaltype="REG_DWORD" regvalue="1" />
+		<setregistryvalue regpath="HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\System" regkey="HideFastUserSwitching" regvaltype="REG_DWORD" regvalue="1" />
+		<setregistryvalue regpath="HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\System" regkey="NoLogoff" regvaltype="REG_DWORD" regvalue="1" />
+		<setregistryvalue regpath="HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\System" regkey="DisableChangePassword" regvaltype="REG_DWORD" regvalue="1" />
+
+		<!-- No taskmanager -->
+		<setregistryvalue regpath="HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System" regkey="DisableTaskMgr" regvaltype="REG_DWORD" regvalue="1" />
+
+		<!-- Xenv as shell -->
+		<setregistryvalue regpath="HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" regkey="Shell" regvaltype="REG_SZ" regvalue="c:\windows\system32\cscript.exe //B c:\environment\start_eng.vbs" />
+
+		<!-- Show file extensions -->
+		<setregistryvalue regpath="HKLM\software\microsoft\windows\current version\explorer\advanced\folder\hidefileext" regkey="DefaultValue" regvaltype="REG_DWORD" regvalue="0" />
+
+		<!-- Disable system restore -->
+		<setregistryvalue regpath="HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SystemRestore" regkey="RPSessionInterval" regvaltype="REG_DWORD" regvalue="0" />
+
+		<!-- IE TLS enabled -->
+		<setregistryvalue regpath="HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Internet Settings" regkey="SecureProtocols" regvaltype="REG_DWORD" regvalue="2728" />
+
+		<!-- Disable ie welcome screen -->
+		<setregistryvalue regpath="HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet Explorer\Main" regkey="DisableFirstRunCustomize" regvaltype="REG_DWORD" regvalue="1" />
+
+		<!-- Encrypt page file -->
+		<setregistryvalue regpath="HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\FileSystem" regkey="NtfsEncryptPagingFile" regvaltype="REG_DWORD" regvalue="1" />
+		<setregistryvalue regpath="HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Policies" regkey="NtfsEncryptPagingFile" regvaltype="REG_DWORD" regvalue="1" />
+
+		<!-- Enable rdp -->
+		<setregistryvalue regpath="HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Terminal Server" regkey="fDenyTSConnections" regvaltype="REG_DWORD" regvalue="0" />
+		<setregistryvalue regpath="HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Terminal Server" regkey="fAllowToGetHelp" regvaltype="REG_DWORD" regvalue="0" />
+
+		<!-- Clear page file -->
+		<setregistryvalue regpath="HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" regkey="ClearPageFileAtShutdown" regvaltype="REG_DWORD" regvalue="1" />
+
+		<!-- General Security lockdown -->
+		<setregistryvalue regpath="HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\policies\system" regkey="dontdisplaylastusername" regvaltype="REG_DWORD" regvalue="0" />
+		<setregistryvalue regpath="HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\policies\system" regkey="shutdownwithoutlogon" regvaltype="REG_DWORD" regvalue="1" />
+		<setregistryvalue regpath="HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\policies\system" regkey="undockwithoutlogon" regvaltype="REG_DWORD" regvalue="1" />
+		<setregistryvalue regpath="HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\policies\system" regkey="HideFastUserSwitching" regvaltype="REG_DWORD" regvalue="1" />
+		<setregistryvalue regpath="HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\policies\system" regkey="DisableTaskMgr" regvaltype="REG_DWORD" regvalue="1" />
+		<setregistryvalue regpath="HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" regkey="DisableCAD" regvaltype="REG_DWORD" regvalue="1" />
+
+
+		<!-- Allow auto login -->
+		<setregistryvalue regpath="HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" regkey="AutoAdminLogon" regvaltype="REG_DWORD" regvalue="1" />
+
+		<!-- Force uac off -->
+		<setregistryvalue regpath="HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" regkey="EnableLUA" regvaltype="REG_DWORD" regvalue="0" />
+
+		<!-- Remove power options from control alt delete screen -->
+		<setregistryvalue regpath="HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\policies\Explorer" regkey="NoClose" regvaltype="REG_DWORD" regvalue="1" />
+
+	</job>
+
+	<job name="nonXP globalsettings import" condition="!windowsXP-flag-present" >
+		<executefile workingDir="c:\windows\system32" name="reg.exe">
+			<arg>import</arg>
+			<arg>${INSTALL_PATH}\sysconfig\globalsettings.reg</arg>
+		</executefile>
+	</job>
+
+	<job name="User Default Registry Load" condition="!windowsXP-flag-present" joblog="${JOB_LOGS}/user-default-registry-lockdown.log">
+
+		<!-- Load in the default registry file -->
+		<executefile workingDir="c:\windows\system32" name="c:\windows\system32\reg.exe">
+			<arg>load</arg>
+			<arg>HKU\DEFAULT</arg>
+			<arg>c:\users\default\ntuser.dat</arg>
+		</executefile>
+
+		<setregistryvalue regpath="HKU\DEFAULT\Software\7-Zip\FM" regkey="Editor" regvaltype="REG_SZ" regvalue="C:\Program Files\Notepad++\notepad++.exe" />
+		<setregistryvalue regpath="HKU\DEFAULT\Software\7-Zip\FM" regkey="Viewer" regvaltype="REG_SZ" regvalue="C:\Program Files\Notepad++\notepad++.exe" />
+
+
+		<!-- Intel Hot keys -->
+		<setregistryvalue regpath="HKU\DEFAULT\Software\INTEL\DISPLAY\IGFXCUI\HotKeys" regkey="Enable" regvaltype="REG_DWORD" regvalue="0" />
+
+		<!-- No shutdown/logoff -->
+		<setregistryvalue regpath="HKU\DEFAULT\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" regkey="NoLogoff" regvaltype="REG_DWORD" regvalue="1" />
+		<setregistryvalue regpath="HKU\DEFAULT\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" regkey="NoShutdown" regvaltype="REG_DWORD" regvalue="1" />
+		<setregistryvalue regpath="HKU\DEFAULT\Software\Microsoft\Windows\CurrentVersion\Policies\System" regkey="DisableChangePassword" regvaltype="REG_DWORD" regvalue="1" />
+		<setregistryvalue regpath="HKU\DEFAULT\Software\Microsoft\Windows\CurrentVersion\Policies\System" regkey="DisableLockWorkstation" regvaltype="REG_DWORD" regvalue="1" />
+
+		<!-- Screen saver -->
+		<setregistryvalue regpath="HKU\DEFAULT\Control Panel\Desktop" regkey="ScreenSaverIsSecure" regvaltype="REG_DWORD" regvalue="0" />
+		<setregistryvalue regpath="HKU\DEFAULT\Control Panel\Desktop" regkey="ScreenSaveActive" regvaltype="REG_DWORD" regvalue="0" />
+
+		<!-- Show hidden files/file extensions -->
+		<setregistryvalue regpath="HKU\DEFAULT\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" regkey="HideFileExt" regvaltype="REG_DWORD" regvalue="0" />
+		<setregistryvalue regpath="HKU\DEFAULT\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" regkey="Hidden" regvaltype="REG_DWORD" regvalue="1" />
+
+		<!-- Don't use the Windows store -->
+		<setregistryvalue regpath="HKU\DEFAULT\Software\Policies\Microsoft\Windows\Explorer" regkey="NoUseStoreOpenWith" regvaltype="REG_DWORD" regvalue="0" />
+
+		<!-- Sticky keys no more -->
+		<setregistryvalue regpath="HKEY_USERS\DEFAULT\Control Panel\Accessibility\StickyKeys" regkey="Flags" regvaltype="REG_DWORD" regvalue="506" />
+		<setregistryvalue regpath="HKEY_USERS\DEFAULT\Control Panel\Accessibility\Keyboard Response" regkey="Flags" regvaltype="REG_DWORD" regvalue="122" />
+		<setregistryvalue regpath="HKEY_USERS\DEFAULT\Control Panel\Accessibility\ToggleKeys" regkey="Flags" regvaltype="REG_DWORD" regvalue="58" />
+
+
+		<setregistryvalue regpath="HKEY_USERS\DEFAULT\System\CurrentControlSet\Policies" regkey="NtfsEncryptPagingFile" regvaltype="REG_SZ" regvalue="-" />
+		<setregistryvalue regpath="HKEY_USERS\DEFAULT\Software\Microsoft\CTF\LangBar" regkey="ShowStatus" regvaltype="REG_DWORD" regvalue="3" />
+		<setregistryvalue regpath="HKEY_USERS\DEFAULT\Software\Microsoft\Windows\CurrentVersion\Internet Settings" regkey="SecureProtocols" regvaltype="REG_DWORD" regvalue="2728" />
+		<setregistryvalue regpath="HKEY_USERS\DEFAULT\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" regkey="HideFileExt " regvaltype="REG_DWORD" regvalue="0" />
+
+		<!-- !!!!!! Replicate settings to current user below !!!!! -->
+		<setregistryvalue regpath="HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Policies\System" regkey="DisableChangePassword" regvaltype="REG_DWORD" regvalue="1" />
+		<setregistryvalue regpath="HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Policies\System" regkey="DisableLockWorkstation" regvaltype="REG_DWORD" regvalue="1" />
+		<setregistryvalue regpath="HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" regkey="NoLogoff" regvaltype="REG_DWORD" regvalue="1" />
+		<setregistryvalue regpath="HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" regkey="NoShutdown" regvaltype="REG_DWORD" regvalue="1" />
+
+		<!-- No screensave password -->
+		<setregistryvalue regpath="HKEY_CURRENT_USER\Control Panel\Desktop" regkey="ScreenSaverIsSecure" regvaltype="REG_DWORD" regvalue="0" />
+		<setregistryvalue regpath="HKEY_CURRENT_USER\Control Panel\Desktop" regkey="ScreenSaveActive" regvaltype="REG_DWORD" regvalue="0" />
+
+
+		<setregistryvalue regpath="HKEY_USERS\.Default\System\CurrentControlSet\Policies" regkey="NtfsEncryptPagingFile" regvaltype="REG_SZ" regvalue="-" />
+		<setregistryvalue regpath="HKEY_USERS\.Default\Software\Microsoft\CTF\LangBar" regkey="ShowStatus" regvaltype="REG_DWORD" regvalue="3" />
+		<setregistryvalue regpath="HKEY_USERS\.Default\Software\Microsoft\Windows\CurrentVersion\Internet Settings" regkey="SecureProtocols" regvaltype="REG_DWORD" regvalue="2728" />
+		<setregistryvalue regpath="HKEY_USERS\.Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" regkey="HideFileExt " regvaltype="REG_DWORD" regvalue="0" />
+
+		<setregistryvalue regpath="HKEY_USERS\DEFAULT\System\CurrentControlSet\Policies" regkey="NtfsEncryptPagingFile" regvaltype="REG_SZ" regvalue="-" />
+		<setregistryvalue regpath="HKEY_USERS\DEFAULT\Software\Microsoft\CTF\LangBar" regkey="ShowStatus" regvaltype="REG_DWORD" regvalue="3" />
+		<setregistryvalue regpath="HKEY_USERS\DEFAULT\Software\Microsoft\Windows\CurrentVersion\Internet Settings" regkey="SecureProtocols" regvaltype="REG_DWORD" regvalue="2728" />
+		<setregistryvalue regpath="HKEY_USERS\DEFAULT\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" regkey="HideFileExt " regvaltype="REG_DWORD" regvalue="0" />
+
+		<!-- Sticky keys goodbye! -->
+		<setregistryvalue regpath="HKEY_USERS\.Default\Control Panel\Accessibility\StickyKeys" regkey="Flags" regvaltype="REG_SZ" regvalue="506" />
+		<setregistryvalue regpath="HKEY_USERS\.Default\Control Panel\Accessibility\Keyboard Response" regkey="Flags" regvaltype="REG_SZ" regvalue="122" />
+		<setregistryvalue regpath="HKEY_USERS\.Default\Control Panel\Accessibility\ToggleKeys" regkey="Flags" regvaltype="REG_SZ" regvalue="58" />
+
+		<!-- Intel Hotkeys -->
+		<setregistryvalue regpath="HKEY_USERS\.Default\Software\INTEL\barcodescanner\IGFXCUI\HotKeys" regkey="Enable" regvaltype="REG_DWORD" regvalue="0" />
+
+
+		<!-- Intel Hotkeys -->
+		<setregistryvalue regpath="HKEY_USERS\.Default\Software\INTEL\DISPLAY\IGFXCUI\HotKeys" regkey="Enable" regvaltype="REG_DWORD" regvalue="0" />
+
+		<executefile workingDir="c:\windows\system32" name="c:\windows\system32\reg.exe">
+			<arg>unload</arg>
+			<arg>HKU\DEFAULT</arg>
+		</executefile>
+
+	</job>
+
+	<job name="User Default Registry Load" condition="windowsXP-flag-present" joblog="${JOB_LOGS}/user-default-registry-lockdown.log">
+
+		<!-- Load in the default registry file -->
+		<executefile workingDir="c:\windows\system32" name="c:\windows\system32\reg.exe">
+			<arg>load</arg>
+			<arg>HKU\DEFAULT</arg>
+			<arg>c:\documents and settings\default user\ntuser.dat</arg>
+		</executefile>
+
+		<setregistryvalue regpath="HKU\DEFAULT\Software\7-Zip\FM" regkey="Editor" regvaltype="REG_SZ" regvalue="C:\Program Files\Notepad++\notepad++.exe" />
+		<setregistryvalue regpath="HKU\DEFAULT\Software\7-Zip\FM" regkey="Viewer" regvaltype="REG_SZ" regvalue="C:\Program Files\Notepad++\notepad++.exe" />
+
+
+		<!-- Intel Hot keys -->
+		<setregistryvalue regpath="HKU\DEFAULT\Software\INTEL\DISPLAY\IGFXCUI\HotKeys" regkey="Enable" regvaltype="REG_DWORD" regvalue="0" />
+
+		<!-- No shutdown/logoff -->
+		<setregistryvalue regpath="HKU\DEFAULT\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" regkey="NoLogoff" regvaltype="REG_DWORD" regvalue="1" />
+		<setregistryvalue regpath="HKU\DEFAULT\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" regkey="NoShutdown" regvaltype="REG_DWORD" regvalue="1" />
+		<setregistryvalue regpath="HKU\DEFAULT\Software\Microsoft\Windows\CurrentVersion\Policies\System" regkey="DisableChangePassword" regvaltype="REG_DWORD" regvalue="1" />
+		<setregistryvalue regpath="HKU\DEFAULT\Software\Microsoft\Windows\CurrentVersion\Policies\System" regkey="DisableLockWorkstation" regvaltype="REG_DWORD" regvalue="1" />
+		<setregistryvalue regpath="HKU\DEFAULT\Software\Microsoft\Windows\CurrentVersion\Policies\System" regkey="DisableTaskMgr" regvaltype="REG_DWORD" regvalue="1" />
+
+		<!-- Screen saver -->
+		<setregistryvalue regpath="HKU\DEFAULT\Control Panel\Desktop" regkey="ScreenSaverIsSecure" regvaltype="REG_DWORD" regvalue="0" />
+		<setregistryvalue regpath="HKU\DEFAULT\Control Panel\Desktop" regkey="ScreenSaveActive" regvaltype="REG_DWORD" regvalue="0" />
+
+		<!-- Show hidden files/file extensions -->
+		<setregistryvalue regpath="HKU\DEFAULT\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" regkey="HideFileExt" regvaltype="REG_DWORD" regvalue="0" />
+		<setregistryvalue regpath="HKU\DEFAULT\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" regkey="Hidden" regvaltype="REG_DWORD" regvalue="1" />
+
+		<!-- Don't use the Windows store -->
+		<setregistryvalue regpath="HKU\DEFAULT\Software\Policies\Microsoft\Windows\Explorer" regkey="NoUseStoreOpenWith" regvaltype="REG_DWORD" regvalue="0" />
+
+		<!-- Sticky keys no more -->
+		<setregistryvalue regpath="HKEY_USERS\DEFAULT\Control Panel\Accessibility\StickyKeys" regkey="Flags" regvaltype="REG_DWORD" regvalue="506" />
+		<setregistryvalue regpath="HKEY_USERS\DEFAULT\Control Panel\Accessibility\Keyboard Response" regkey="Flags" regvaltype="REG_DWORD" regvalue="122" />
+		<setregistryvalue regpath="HKEY_USERS\DEFAULT\Control Panel\Accessibility\ToggleKeys" regkey="Flags" regvaltype="REG_DWORD" regvalue="58" />
+
+
+		<setregistryvalue regpath="HKEY_USERS\DEFAULT\System\CurrentControlSet\Policies" regkey="NtfsEncryptPagingFile" regvaltype="REG_SZ" regvalue="-" />
+		<setregistryvalue regpath="HKEY_USERS\DEFAULT\Software\Microsoft\CTF\LangBar" regkey="ShowStatus" regvaltype="REG_DWORD" regvalue="3" />
+		<setregistryvalue regpath="HKEY_USERS\DEFAULT\Software\Microsoft\Windows\CurrentVersion\Internet Settings" regkey="SecureProtocols" regvaltype="REG_DWORD" regvalue="2728" />
+		<setregistryvalue regpath="HKEY_USERS\DEFAULT\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" regkey="HideFileExt " regvaltype="REG_DWORD" regvalue="0" />
+
+		<!-- !!!!!! Replicate settings to current user below !!!!! -->
+		<setregistryvalue regpath="HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Policies\System" regkey="DisableChangePassword" regvaltype="REG_DWORD" regvalue="1" />
+		<setregistryvalue regpath="HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Policies\System" regkey="DisableLockWorkstation" regvaltype="REG_DWORD" regvalue="1" />
+		<setregistryvalue regpath="HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Policies\System" regkey="DisableTaskMgr" regvaltype="REG_DWORD" regvalue="1" />
+		<setregistryvalue regpath="HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" regkey="NoLogoff" regvaltype="REG_DWORD" regvalue="1" />
+		<setregistryvalue regpath="HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" regkey="NoShutdown" regvaltype="REG_DWORD" regvalue="1" />
+
+		<!-- No screensave password -->
+		<setregistryvalue regpath="HKEY_CURRENT_USER\Control Panel\Desktop" regkey="ScreenSaverIsSecure" regvaltype="REG_DWORD" regvalue="0" />
+		<setregistryvalue regpath="HKEY_CURRENT_USER\Control Panel\Desktop" regkey="ScreenSaveActive" regvaltype="REG_DWORD" regvalue="0" />
+
+
+		<setregistryvalue regpath="HKEY_USERS\.Default\System\CurrentControlSet\Policies" regkey="NtfsEncryptPagingFile" regvaltype="REG_SZ" regvalue="-" />
+		<setregistryvalue regpath="HKEY_USERS\.Default\Software\Microsoft\CTF\LangBar" regkey="ShowStatus" regvaltype="REG_DWORD" regvalue="3" />
+		<setregistryvalue regpath="HKEY_USERS\.Default\Software\Microsoft\Windows\CurrentVersion\Internet Settings" regkey="SecureProtocols" regvaltype="REG_DWORD" regvalue="2728" />
+		<setregistryvalue regpath="HKEY_USERS\.Default\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" regkey="HideFileExt " regvaltype="REG_DWORD" regvalue="0" />
+
+		<setregistryvalue regpath="HKEY_USERS\DEFAULT\System\CurrentControlSet\Policies" regkey="NtfsEncryptPagingFile" regvaltype="REG_SZ" regvalue="-" />
+		<setregistryvalue regpath="HKEY_USERS\DEFAULT\Software\Microsoft\CTF\LangBar" regkey="ShowStatus" regvaltype="REG_DWORD" regvalue="3" />
+		<setregistryvalue regpath="HKEY_USERS\DEFAULT\Software\Microsoft\Windows\CurrentVersion\Internet Settings" regkey="SecureProtocols" regvaltype="REG_DWORD" regvalue="2728" />
+		<setregistryvalue regpath="HKEY_USERS\DEFAULT\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" regkey="HideFileExt " regvaltype="REG_DWORD" regvalue="0" />
+
+		<!-- Sticky keys goodbye! -->
+		<setregistryvalue regpath="HKEY_USERS\.Default\Control Panel\Accessibility\StickyKeys" regkey="Flags" regvaltype="REG_SZ" regvalue="506" />
+		<setregistryvalue regpath="HKEY_USERS\.Default\Control Panel\Accessibility\Keyboard Response" regkey="Flags" regvaltype="REG_SZ" regvalue="122" />
+		<setregistryvalue regpath="HKEY_USERS\.Default\Control Panel\Accessibility\ToggleKeys" regkey="Flags" regvaltype="REG_SZ" regvalue="58" />
+
+		<!-- Intel Hotkeys -->
+		<setregistryvalue regpath="HKEY_USERS\.Default\Software\INTEL\barcodescanner\IGFXCUI\HotKeys" regkey="Enable" regvaltype="REG_DWORD" regvalue="0" />
+
+
+		<!-- Intel Hotkeys -->
+		<setregistryvalue regpath="HKEY_USERS\.Default\Software\INTEL\DISPLAY\IGFXCUI\HotKeys" regkey="Enable" regvaltype="REG_DWORD" regvalue="0" />
+
+		<executefile workingDir="c:\windows\system32" name="c:\windows\system32\reg.exe">
+			<arg>unload</arg>
+			<arg>HKU\DEFAULT</arg>
+		</executefile>
+
+	</job>
+
+	<job name="Adding in Users" >
+		<!-- Set POS USER IN WINDOWS PASSWORD -->
+		<executefile workingDir="c:/windows/system32/" name="net">
+			<arg>user</arg>
+			<arg>${windowsposuserusername}</arg>
+			<arg>${windowsposuserpassword}</arg>
+			<arg>/add</arg>
+		</executefile>
+
+
+		<executefile workingDir="c:/windows/system32/" name="net">
+			<arg>localgroup</arg>
+			<arg>administrators</arg>
+			<arg>${windowsposuserusername}</arg>
+			<arg>/add</arg>
+		</executefile>
+
+		<executefile workingDir="${INSTALL_PATH}\setup" name="${INSTALL_PATH}\setup\ntrights.exe">
+			<arg>-u</arg>
+			<arg>${windowsposuserusername}</arg>
+			<arg>+r</arg>
+			<arg>SeShutdownPrivilege</arg>
+		</executefile>
+
+		<!-- Set SYSADMIN USER IN WINDOWS PASSWORD -->
+		<executefile workingDir="c:/windows/system32/" name="net">
+			<arg>user</arg>
+			<arg>sysadmin</arg>
+			<arg>${windowssysadminuserpassword}</arg>
+			<arg>/add</arg>
+		</executefile>
+
+		<executefile workingDir="c:/windows/system32/" name="net">
+			<arg>localgroup</arg>
+			<arg>administrators</arg>
+			<arg>sysadmin</arg>
+			<arg>/add</arg>
+		</executefile>
+
+		<executefile workingDir="c:/windows/system32/" name="net">
+			<arg>user</arg>
+			<arg>administrator</arg>
+			<arg>/active:no</arg>
+		</executefile>
+
+		<!-- Set windows built in admin password -->
+		<executefile workingDir="c:/windows/system32/" name="net">
+			<arg>user</arg>
+			<arg>administrator</arg>
+			<arg>${windowssysadminuserpassword}</arg>
+		</executefile>
+
+		<!-- Disable password expiration -->
+		<executefile workingDir="c:/windows/system32/" name="net">
+			<arg>accounts</arg>
+			<arg>/maxpwage:unlimited</arg>
+		</executefile>
+
+	</job>
+
+	<job name="Adding in Users XP" condition="windowsXP-flag-present">
+		<executefile workingDir="c:\xstinst\sysconfig\" name="c:\xstinst\sysconfig\psexec.exe">
+			<arg>/accepteula</arg>
+			<arg>-u</arg>
+			<arg>${windowsposuserusername}</arg>
+			<arg>-p</arg>
+			<arg>${windowsposuserpassword}</arg>
+			<arg>c:\windows\system32\reg.exe</arg>
+			<arg>import</arg>
+			<arg>${INSTALL_PATH}\sysconfig\logonsettingsXP.reg</arg>
+		</executefile>
+	</job>
+
+	<job name="Adding in Users non-XP" condition="!windowsXP-flag-present">
+		<executefile workingDir="c:\xstinst\sysconfig\" name="c:\xstinst\sysconfig\psexec64.exe">
+			<arg>-u</arg>
+			<arg>${windowsposuserusername}</arg>
+			<arg>-p</arg>
+			<arg>${windowsposuserpassword}</arg>
+			<arg>c:\windows\system32\reg.exe</arg>
+			<arg>import</arg>
+			<arg>${INSTALL_PATH}\sysconfig\logonsettings.reg</arg>
+		</executefile>
+	</job>
+
+	<job name="Adding in Users 3" condition="!windowsXP-flag-present">
+
+		<executefile workingDir="C:/Windows/System32/wbem/" name="wmic.exe">
+			<arg>USERACCOUNT</arg>
+			<arg>WHERE</arg>
+			<arg>Name='administrator'</arg>
+			<arg>set</arg>
+			<arg>PasswordExpires=FALSE</arg>
+		</executefile>
+
+		<executefile workingDir="C:/Windows/System32/wbem/" name="wmic.exe">
+			<arg>USERACCOUNT</arg>
+			<arg>WHERE</arg>
+			<arg>Name='sysadmin'</arg>
+			<arg>set</arg>
+			<arg>PasswordExpires=FALSE</arg>
+		</executefile>
+
+		<executefile workingDir="C:/Windows/System32/wbem/" name="wmic.exe">
+			<arg>USERACCOUNT</arg>
+			<arg>WHERE</arg>
+			<arg>Name='${windowsposuserusername}'</arg>
+			<arg>set</arg>
+			<arg>PasswordExpires=FALSE</arg>
+		</executefile>
+	</job>
+
+	<job name="Adding in XP Users 3" condition="windowsXP-flag-present">
+
+		<executefile workingDir="c:/windows/system32/" name="net">
+			<arg>accounts</arg>
+			<arg>/MaxPWAge:unlimited</arg>
+		</executefile>
+
+	</job>
+
+	<job name="Adding in Users 4" >
+		<!-- Set oracle passwords -->
+		<executefile workingDir="${INSTALL_PATH}" name="${sqlplusCmd}">
+			<arg>/</arg>
+			<arg>as</arg>
+			<arg>sysdba</arg>
+			<arg>@c:\xstinst\sysconfig\setdb_passwords.sql</arg>
+		</executefile>
+
+
+		<!-- Remove xstore's ability to login to db without password -->
+		<executefile workingDir="c:/windows/system32/" name="net">
+			<arg>localgroup</arg>
+			<arg>ora_dba</arg>
+			<arg>xstore</arg>
+			<arg>/delete</arg>
+		</executefile>
+
+		<!-- Remove sysadmin's ability to login to db without password -->
+		<executefile workingDir="c:/windows/system32/" name="net">
+			<arg>localgroup</arg>
+			<arg>ora_dba</arg>
+			<arg>sysadmin</arg>
+			<arg>/delete</arg>
+		</executefile>
+
+		<!-- Set auto login -->
+		<executefile workingDir="${INSTALL_PATH}/setup" name="${INSTALL_PATH}/setup/Autologon.exe">
+			<arg>/accepteula</arg>
+			<arg>${windowsposuserusername}</arg>
+			<arg>.</arg>
+			<arg>${windowsposuserpassword}</arg>
+		</executefile>
+	</job>
+
+	<job name="Test Register Setup Add CMD" condition="XENVCMD_FLAG_EXIST">
+		<writefile file="c:/environment/start_eng_testreg.bat">
+			<![CDATA[
+			start cmd.exe
+			c:\windows\system32\cscript.exe //B c:\environment\start_eng.vbs
+			exit 0
+			]]>
+		</writefile>
+
+		<setregistryvalue regpath="HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" regkey="Shell" regvaltype="REG_SZ" regvalue="c:\environment\start_eng_testreg.bat" />
+	</job>
+
+	<job name="XP Final Setup" condition="windowsXP-flag-present">
+		<!-- Set Xstore directory permissions to XSTORE windows user -->
+		<executefile workingDir="${INSTALL_PATH}/sysconfig" name="${INSTALL_PATH}/sysconfig/permsXP.bat">
+			<arg>${windowsposuserusername}</arg>
+			<arg>sysadmin</arg>
+		</executefile>
+
+		<!-- Update final system path -->
+		<setsystemvar variable="PATH" value="${modifiedPath}" />
+
+		<executefile workingDir="c:/xstinst/sysconfig/" name="c:/xstinst/sysconfig/newsid.exe">
+			<arg>/a</arg>
+			<arg>/n</arg>
+			<arg>${regHostName}</arg>
+		</executefile>
+
+		<fileoperation operation="DELETE" srcpath="c:/environment/start_eng.vbs" />
+		<sleep timems="10000" />
+		<fileop operation="COPY" srcpath="c:/xstinst/xenv/XPstart_eng.vbs" dstpath="c:/environment/start_eng.vbs" />
+
+		<fileoperation operation="DELETE" srcpath="c:/environment/cust_config/version1/actions.properties" />
+		<sleep timems="10000" />
+		<fileop operation="COPY" srcpath="c:/xstinst/xenv/XPactions.properties" dstpath="c:/environment/cust_config/version1/actions.properties" />
+	</job>
+
+	<job name="nonXP Permissions Setup" condition="!windowsXP-flag-present">
+		<!-- Set Xstore directory permissions to XSTORE windows user -->
+		<executefile workingDir="${INSTALL_PATH}/sysconfig" name="${INSTALL_PATH}/sysconfig/perms.bat">
+			<arg>${windowsposuserusername}</arg>
+			<arg>sysadmin</arg>
+		</executefile>
+
+	</job>
+
+	<job name="Setting Listener to Auto Start for Windows 10" condition="windows10-flag-present" joblog="${JOB_LOGS}/win10-updating-listener.log">
+		<executefile workingDir="c:\windows\system32" name="c:\windows\system32\sc.exe">
+			<arg>config</arg>
+			<arg>OracleOraDB12Home1TNSListener</arg>
+			<arg>start=</arg>
+			<arg>delayed-auto</arg>
+		</executefile>
+		<executefile workingDir="c:\windows\system32\" name="c:\windows\system32\reg.exe">
+			<arg>import</arg>
+			<arg>${INSTALL_PATH}\database\win10listener.reg</arg>
+		</executefile>
+	</job>
+
+	<job name="Reboot Register">
+		<executefile workingDir="c:/windows/system32/" name="net">
+			<arg>user</arg>
+			<arg>SETUP-ADMIN</arg>
+			<arg>/delete</arg>
+		</executefile>
+
+		<executefile workingDir="c:/windows/system32/" name="c:/windows/system32/cmd.exe">
+			<arg>/C</arg>
+			<arg>del /Q/F c:\environment\marker\*</arg>
+		</executefile>
+		<executefile workingDir="c:/windows/system32/" name="c:/windows/system32/cmd.exe">
+			<arg>/C</arg>
+			<arg>del /Q/F c:\environment\log\*</arg>
+		</executefile>
+		<executefile workingDir="c:/windows/system32/" name="c:/windows/system32/cmd.exe">
+			<arg>/C</arg>
+			<arg>del /Q/F c:\xstore\log\*</arg>
+		</executefile>
+		<executefile workingDir="c:/windows/system32/" name="c:/windows/system32/cmd.exe">
+			<arg>/C</arg>
+			<arg>del /Q/F c:\xstinst\sysconfig\setdb_passwords.sql</arg>
+		</executefile>
+		<reboot/>
+	</job>
+</izpack:processing>
