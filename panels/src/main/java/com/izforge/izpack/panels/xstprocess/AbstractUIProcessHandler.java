@@ -18,8 +18,3 @@ public abstract interface AbstractUIProcessHandler
   public abstract void skipProcess(String paramString1, String paramString2);
 }
 
-
-/* Location:              D:\stage-installer-01-30-2023\postghost\installer\JCG-Xstore17-InstallerCopy.jar!\com\izforge\izpack\panels\xstprocess\AbstractUIProcessHandler.class
- * Java compiler version: 6 (50.0)
- * JD-Core Version:       0.7.1
- */
