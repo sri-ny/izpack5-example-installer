@@ -15,7 +15,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <staging.dir>${project.build.directory}/staging</staging.dir>
-        <installer-output-filename>the-example-installer.jar</installer-output-filename>
+        <installer-output-filename>jcg-23-installer.jar</installer-output-filename>
     </properties>
 
     <developers>
