@@ -38,4 +38,4 @@ jobs:
         with:
           name: izpack-installer
           path: installer/target/the-example-installer.jar
-          if-no-files-found: error
+          if-no-files-found: error 
