@@ -24,15 +24,16 @@ jobs:
 
       - name: Build with Maven
         run: |
-          mvn clean package -X > build.log 2>&1
+          mvn -f ../pom.xml clean package -X > build.log 2>&1
           cat build.log
 
-      - name: Upload Build Log
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log
-          path: build.log
-
+      - name: List directory structure
+        run: |
+          echo "Listing root directory:"
+          ls -la
+          echo "Listing target directory:"
+          ls -la ../target || echo "Target directory does not exist."
+          
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
