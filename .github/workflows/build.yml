@@ -22,6 +22,10 @@ jobs:
       - name: Create target directory
         run: mkdir -p target
 
+      - name: Run Maven Dependency Tree
+        run: |
+          mvn dependency:tree | tee dependency-tree.log
+
       - name: Run Maven Clean Package with Debug Logging
         run: |
           set -o pipefail
@@ -32,6 +36,12 @@ jobs:
 
       - name: List target directory
         run: ls -R installer/target
+
+      - name: Upload Dependency Tree Log
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-tree-log
+          path: dependency-tree.log
 
       - name: Upload Build Log
         uses: actions/upload-artifact@v4
