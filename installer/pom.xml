@@ -3,9 +3,9 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.example.test.installer</groupId>
-        <artifactId>izpack-example</artifactId>
-        <version>1.0-SNAPSHOT</version>
+        <groupId>com.jcg.installer</groupId>
+        <artifactId>izpack-jcg</artifactId>
+        <version>5.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -20,19 +20,19 @@
 
     <developers>
         <developer>
-            <id>aaron</id>
-            <name>Aaron Spear</name>
-            <email>aaron@ontherock.com</email>
-            <timezone>+7</timezone>
+            <id>sri-ny</id>
+            <name>sridhar L</name>
+            <email>sri_ny@aol.com</email>
+            <timezone>-5</timezone>
         </developer>
     </developers>
 
     <!-- must have a dependency on our separate package that contains the custom panels -->
     <dependencies>
         <dependency>
-            <groupId>com.example.test.installer</groupId>
+            <groupId>com.jcg.installer</groupId>
             <artifactId>izpack-panels</artifactId>
-            <version>1.0-SNAPSHOT</version>
+            <version>5.1.0-SNAPSHOT</version>
         </dependency>
     </dependencies>
 

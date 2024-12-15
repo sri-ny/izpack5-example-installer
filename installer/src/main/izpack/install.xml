@@ -2,10 +2,10 @@
 <installation version="5.0">
     <info>
         <appname>IzPack Installer Example</appname>
-        <appversion>1.0-SNAPSHOT</appversion>
+        <appversion>5.1.0-SNAPSHOT</appversion>
         <url>https://github.com/aspear/izpack5-example-installer</url>
         <authors>
-            <author name="Aaron Spear" email="aaron@ontherock.com"/>
+            <author name="Sridhar L" email="sri_ny@aol.com"/>
         </authors>
     </info>
 
