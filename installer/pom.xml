@@ -109,7 +109,7 @@
                         <id>copy-izpack-dependencies</id>
                         <phase>prepare-package</phase>
                         <goals>
-                            <goal>copy-dependencies</goal>
+                            <goal>analyze</goal>
                         </goals>
                         <configuration>
                             <outputDirectory>${staging.dir}/custom</outputDirectory>
