@@ -52,10 +52,6 @@
                     <encoding>${project.build.sourceEncoding}</encoding>
                     <source>${maven.compiler.source}</source>
                     <target>${maven.compiler.target}</target>
-                    <compilerArgs>
-                        <arg>-bootclasspath</arg>
-                        <arg>${java.home}/lib/rt.jar</arg>
-                    </compilerArgs>
                 </configuration>
             </plugin>
         </plugins>

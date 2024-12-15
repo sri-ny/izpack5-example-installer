@@ -23,8 +23,6 @@ jobs:
 
       - name: Run Maven Clean Package with Debug Logging
         run: |
-          set -o pipefail
-          export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
           mvn clean package -X | tee build.log
 
       - name: Upload Build Log
