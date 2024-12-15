@@ -1,4 +1,4 @@
-name: Validate and Build IzPack Installer
+name: Build IzPack Installer
 
 on:
   push:
@@ -22,17 +22,16 @@ jobs:
       - name: Create target directory
         run: mkdir -p target
 
+      - name: Create settings-security.xml
+        run: |
+          mkdir -p $HOME/.m2
+          echo '<settingsSecurity>
+                  <master>${{ secrets.SRI_NY_REPO }}</master>
+                </settingsSecurity>' > $HOME/.m2/settings-security.xml
+
       - name: Run Maven Dependency Tree
         run: |
           mvn dependency:tree | tee dependency-tree.log
-
-      - name: Run Maven Dependency Analysis
-        run: |
-          mvn dependency:analyze | tee dependency-analysis.log
-
-      - name: Validate Maven Project
-        run: |
-          mvn validate | tee validate.log
 
       - name: Run Maven Clean Package with Debug Logging
         run: |
@@ -50,18 +49,6 @@ jobs:
         with:
           name: dependency-tree-log
           path: dependency-tree.log
-
-      - name: Upload Dependency Analysis Log
-        uses: actions/upload-artifact@v4
-        with:
-          name: dependency-analysis-log
-          path: dependency-analysis.log
-
-      - name: Upload Validate Log
-        uses: actions/upload-artifact@v4
-        with:
-          name: validate-log
-          path: validate.log
 
       - name: Upload Build Log
         uses: actions/upload-artifact@v4
