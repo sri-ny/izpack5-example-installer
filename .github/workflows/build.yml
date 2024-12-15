@@ -22,14 +22,13 @@ jobs:
       - name: Create target directory
         run: mkdir -p target
 
-      - name: Build with Maven
+      - name: Run Maven Clean Package with Debug Logging
         run: |
-          mvn clean package -X > build.log 2>&1
-          cat build.log
-          if grep -q ERROR build.log; then 
-            echo "Build failed, check build.log for details." 
-            exit 1 
-          fi
+          set -o pipefail
+          mvn clean package -X | tee build.log
+        env:
+          JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/11.0.25-9/x64
+          JAVA_HOME_11_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/11.0.25-9/x64
 
       - name: Upload Build Log
         uses: actions/upload-artifact@v4
