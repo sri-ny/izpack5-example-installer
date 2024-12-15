@@ -25,10 +25,8 @@ jobs:
       - name: Run Maven Clean Package with Debug Logging
         run: |
           set -o pipefail
+          export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
           mvn clean package -X | tee build.log
-        env:
-          JAVA_HOME: /opt/hostedtoolcache/Java_Zulu-Hotspot_jdk/1.7.0-342/x64
-          JAVA_HOME_1_7_X64: /opt/hostedtoolcache/Java_Zulu-Hotspot_jdk/1.7.0-342/x64
 
       - name: Upload Build Log
         uses: actions/upload-artifact@v4
