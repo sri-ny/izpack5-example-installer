@@ -16,6 +16,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <staging.dir>${project.build.directory}/staging</staging.dir>
         <installer-output-filename>jcg-23-installer.jar</installer-output-filename>
+	<izpack.version>5.2.3</izpack.version>
     </properties>
 
     <developers>
