@@ -38,8 +38,9 @@ jobs:
           java -jar izpack-compiler.jar -b . -o installer.jar installer/src/main/izpack/Install.xml
 
       # Step 6: Upload the installer artifact
-      - name: Upload Installer
-        uses: actions/upload-artifact@v3
+      - name: Upload Installer Artifact
+        uses: actions/upload-artifact@v4
+
         with:
           name: custom-izpack-installer
           path: installer.jar
