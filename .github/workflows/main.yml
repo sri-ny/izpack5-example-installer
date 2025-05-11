@@ -35,7 +35,7 @@ jobs:
       # Step 5: Run IzPack Compiler
       - name: Build Installer
         run: |
-          java -jar izpack-compiler.jar -b . -o installer.jar panels/src/main/resources/Install.xml
+          java -jar izpack-compiler.jar -b . -o installer.jar installer/src/main/izpack/Install.xml
 
       # Step 6: Upload the installer artifact
       - name: Upload Installer
