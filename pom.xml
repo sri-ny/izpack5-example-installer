@@ -11,7 +11,7 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <izpack.version>5.1.3</izpack.version>
+        <izpack.version>5.2.3</izpack.version>
     </properties>
 
     <modules>
