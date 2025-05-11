@@ -15,11 +15,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Step 2: Set up Java 1.7
-      - name: Set up Java 1.7
+      # Step 2: Set up Java 1.8
+      - name: Set up Java 1.8
         uses: actions/setup-java@v3
         with:
-          java-version: 1.7
+          java-version: 1.8
 
       # Step 3: Compile custom panels
       - name: Compile custom panels
@@ -29,13 +29,13 @@ jobs:
       # Step 4: Install IzPack compiler
       - name: Install IzPack Compiler
         run: |
-          wget https://downloads.sourceforge.net/project/izpack/izpack/5.1.0/izpack-5.1.0-installer.jar
-          java -jar izpack-5.1.0-installer.jar -console -options-system -options-file izpack-options.txt
+          wget https://downloads.sourceforge.net/project/izpack/izpack/5.2.3/izpack-5.2.3-installer.jar
+          java -jar izpack-5.2.3-installer.jar -console -options-system -options-file izpack-options.txt
 
       # Step 5: Run IzPack Compiler
       - name: Build Installer
         run: |
-          java -jar izpack-compiler.jar -b . -o installer.jar panels/src/main/resources/ProcessPanel.Spec.xml
+          java -jar izpack-compiler.jar -b . -o installer.jar panels/src/main/resources/Install.xml
 
       # Step 6: Upload the installer artifact
       - name: Upload Installer
