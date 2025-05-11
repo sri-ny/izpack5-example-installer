@@ -1,64 +1,46 @@
-name: Build IzPack Installer
+name: Build Custom IzPack Installer
 
 on:
   push:
     branches:
-      - master
+      - main
+  pull_request:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
+      # Step 1: Checkout the code
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
-      - name: Set up JDK
-        uses: actions/setup-java@v4
+      # Step 2: Set up Java 1.7
+      - name: Set up Java 1.7
+        uses: actions/setup-java@v3
         with:
-          distribution: 'temurin'
-          java-version: '11'
+          java-version: 1.7
 
-      - name: Create target directory
-        run: mkdir -p target
-
-      - name: Create settings-security.xml
+      # Step 3: Compile custom panels
+      - name: Compile custom panels
         run: |
-          mkdir -p $HOME/.m2
-          echo '<settingsSecurity>
-                  <master>${{ secrets.SRI_NY_REPO }}</master>
-                </settingsSecurity>' > $HOME/.m2/settings-security.xml
+          javac -d out -sourcepath src java/com/izforge/izpack/panels/xstprocess/*.java
 
-      - name: Run Maven Dependency Tree
+      # Step 4: Install IzPack compiler
+      - name: Install IzPack Compiler
         run: |
-          mvn dependency:tree | tee dependency-tree.log
+          wget https://downloads.sourceforge.net/project/izpack/izpack/5.1.0/izpack-5.1.0-installer.jar
+          java -jar izpack-5.1.0-installer.jar -console -options-system -options-file izpack-options.txt
 
-      - name: Run Maven Clean Package with Debug Logging
+      # Step 5: Run IzPack Compiler
+      - name: Build Installer
         run: |
-          set -o pipefail
-          mvn clean package -X | tee build.log
-        env:
-          JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/11.0.25-9/x64
-          JAVA_HOME_11_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/11.0.25-9/x64
+          java -jar izpack-compiler.jar -b . -o installer.jar panels/src/main/resources/ProcessPanel.Spec.xml
 
-      - name: List target directory
-        run: ls -R installer/target
-
-      - name: Upload Dependency Tree Log
-        uses: actions/upload-artifact@v4
+      # Step 6: Upload the installer artifact
+      - name: Upload Installer
+        uses: actions/upload-artifact@v3
         with:
-          name: dependency-tree-log
-          path: dependency-tree.log
-
-      - name: Upload Build Log
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log
-          path: build.log
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: izpack-installer
-          path: installer/target/jcg-23-installer.jar
-          if-no-files-found: error
+          name: custom-izpack-installer
+          path: installer.jar
+          
