@@ -33,6 +33,23 @@
             <artifactId>commons-configuration2</artifactId>
             <version>2.7</version>
         </dependency>
+         <dependency>
+           <groupId>org.codehaus.izpack</groupId>
+           <artifactId>izpack-core</artifactId>
+           <version>5.2.4</version>
+         </dependency>
+         <dependency>
+           <groupId>org.codehaus.izpack</groupId>
+           <artifactId>izpack-api</artifactId>
+           <version>5.2.4</version>
+         </dependency>
+         <dependency>
+           <groupId>org.codehaus.izpack</groupId>
+           <artifactId>izpack-util</artifactId>
+           <version>5.2.4</version>
+         </dependency>
+         <!-- Add others like izpack-panels if needed -->
+
     </dependencies>
 
     <properties>
