@@ -53,8 +53,8 @@
         <panel classname="HTMLInfoPanel" id="welcome"/>
 
         <!-- this is our custom panel, loaded from the izpack-panels.jar file -->
-        <!-- <panel classname="com.izforge.izpack.panels.mypanels.MyHelloPanel" id="myHello"/> -->
-		<panel classname="com.izforge.izpack.panels.xstprocess" id="xstprocess"/> 
+        <panel classname="com.izforge.izpack.panels.mypanels.MyHelloPanel" id="myHello"/>
+	<!--<panel classname="com.izforge.izpack.panels.xstprocess" id="xstprocess"/>  -->
 
         <panel classname="TargetPanel" id="install_dir"/>
         <panel classname="PacksPanel" id="sdk_pack_select"/>
