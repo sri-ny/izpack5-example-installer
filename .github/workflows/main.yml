@@ -29,9 +29,10 @@ jobs:
           #javac -d out -sourcepath src panels/src/main/java/com/izforge/izpack/panels/mypanels/*.java
 
       # Step 4: Install IzPack compiler
-      - name: Download IzPack Compiler (from GitHub)
+      - name: Download IzPack Compiler (v5.2.2)
         run: |
-          curl -L -o izpack-compiler.jar https://github.com/izpack/izpack/releases/download/5.2.3/izpack-compiler-5.2.3.jar
+          curl -L -f -o izpack-compiler.jar \
+          https://repo1.maven.org/maven2/org/izpack/izpack-standalone-compiler/5.2.2/izpack-standalone-compiler-5.2.2.jar
           file izpack-compiler.jar
           test $(stat -c%s izpack-compiler.jar) -gt 4000000 || (echo "Download failed or invalid JAR"; exit 1)
 
