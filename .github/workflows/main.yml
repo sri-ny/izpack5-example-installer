@@ -2,15 +2,16 @@ name: Build IzPack Installer
 
 on:
   push:
-    branches:
-      - master
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
 
 jobs:
   build-installer:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Your Installer Project
+      - name: Checkout Project
         uses: actions/checkout@v4
 
       - name: Set up Java 8
@@ -24,7 +25,8 @@ jobs:
 
       - name: Download IzPack Installer (5.2.4)
         run: |
-          curl -L -o izpack-installer.jar https://repo1.maven.org/maven2/org/codehaus/izpack/izpack-dist/5.2.4/izpack-dist-5.2.4-installer.jar
+          curl -L -o izpack-installer.jar \
+            https://repo1.maven.org/maven2/org/codehaus/izpack/izpack-dist/5.2.4/izpack-dist-5.2.4-installer.jar
 
       - name: Run IzPack Installer in Console Mode (Compiler Only)
         run: |
@@ -44,7 +46,7 @@ jobs:
           expect eof
 EOF
 
-      - name: Compile Installer using Installed Compiler
+      - name: Compile Your IzPack Installer
         run: |
           mkdir -p target
           java -cp izpack/lib/* com.izforge.izpack.compiler.Compiler install.xml \
