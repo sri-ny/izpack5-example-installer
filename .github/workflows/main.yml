@@ -29,7 +29,10 @@ jobs:
           echo "MAVEN_HOME=/opt/maven" >> $GITHUB_ENV
           echo "/opt/maven/bin" >> $GITHUB_PATH
 
-      - name: Clone and Build IzPack from release-5.1
+      - name: Enable JAXB for Java 11
+        run: echo "MAVEN_OPTS=--add-modules java.xml.bind" >> $GITHUB_ENV
+
+      - name: Clone and Build IzPack from 5.1 Branch
         run: |
           git clone https://github.com/izpack/izpack.git
           cd izpack
