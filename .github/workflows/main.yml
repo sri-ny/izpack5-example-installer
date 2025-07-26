@@ -19,15 +19,15 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Install expect (for interactive automation)
+      - name: Install expect
         run: sudo apt-get update && sudo apt-get install -y expect
 
-      - name: Download IzPack 5.2.4 Installer (Distribution)
+      - name: Download IzPack 5.2.4 Installer
         run: |
           curl -L -f -o izpack-installer.jar \
           https://repo1.maven.org/maven2/org/codehaus/izpack/izpack-dist/5.2.4/izpack-dist-5.2.4-installer.jar
 
-      - name: Install IzPack to ./izpack (with expect)
+      - name: Run IzPack Installer in Console Mode
         run: |
           mkdir -p izpack
           expect <<EOF
@@ -42,17 +42,15 @@ jobs:
           send "1\r"
           expect "Select the installation path:"
           send "./izpack\r"
-          expect "1  \\[X\\] IzPack compiler"
-          send "1\r"
           expect "Press 1 to continue"
           send "1\r"
           expect eof
           EOF
-          
+
       - name: Compile IzPack Installer
         run: |
           mkdir -p target
-          java -cp izpack/lib/* com.izforge.izpack.compiler.Compiler install.xml \
+          java -cp "izpack/lib/*" com.izforge.izpack.compiler.Compiler install.xml \
             -b . \
             -o target/my-installer.jar \
             -k standard \
@@ -64,7 +62,7 @@ jobs:
           name: build-log
           path: build.log
 
-      - name: Upload Final Installer
+      - name: Upload Installer JAR
         uses: actions/upload-artifact@v4
         with:
           name: izpack-installer
