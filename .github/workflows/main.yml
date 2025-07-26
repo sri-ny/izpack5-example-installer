@@ -29,10 +29,14 @@ jobs:
           #javac -d out -sourcepath src panels/src/main/java/com/izforge/izpack/panels/mypanels/*.java
 
       # Step 4: Install IzPack compiler
-      - name: Install IzPack Compiler
+      - name: Download IzPack Standalone Compiler
         run: |
-          wget https://downloads.sourceforge.net/project/izpack/izpack/5.2.3/izpack-5.2.3-installer.jar
-          java -jar izpack-5.2.3-installer.jar -console -options-system -options-file izpack-options.txt
+          curl -L -o izpack-compiler.jar \
+          https://repo1.maven.org/maven2/org/izpack/izpack-standalone-compiler/5.2.3/izpack-standalone-compiler-5.2.3.jar
+
+      - name: Build Installer
+        run: |
+          java -jar izpack-compiler.jar install.xml -b . -o target/my-installer.jar -k standard
 
       # Step 5: Run IzPack Compiler
       - name: Build Installer
