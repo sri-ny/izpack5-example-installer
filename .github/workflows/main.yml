@@ -28,28 +28,30 @@ jobs:
           curl -L -o izpack-installer.jar \
             https://repo1.maven.org/maven2/org/codehaus/izpack/izpack-dist/5.2.4/izpack-dist-5.2.4-installer.jar
 
-      - name: Run IzPack Installer in Console Mode
+      - name: Run IzPack Installer in Console Mode with Compiler Pack
         run: |
           mkdir -p izpack
           expect <<'EOF'
-          spawn java -jar izpack-installer.jar -console
-          expect "Input selection:"
-          send "0\r"
-          expect "Press 1 to continue"
-          send "1\r"
-          expect "Press 1 to accept"
-          send "1\r"
-          expect "installation path:"
-          send "./izpack\r"
-          expect "Press 1 to continue"
-          send "1\r"
-          expect eof
-          EOF
+            spawn java -jar izpack-installer.jar -console
+            expect "Input selection:"
+            send "0\r"
+            expect "Press 1 to continue"
+            send "1\r"
+            expect "Press 1 to accept"
+            send "1\r"
+            expect "installation path:"
+            send "./izpack\r"
+            expect "Include optional pack 'IzPack compiler'"
+            send "1\r"
+            expect "Press 1 to continue"
+            send "1\r"
+            expect eof
+EOF
 
       - name: Compile Your IzPack Installer
         run: |
           mkdir -p target
-          java -cp izpack/lib/* com.izforge.izpack.compiler.Compiler install.xml \
+          java -cp "izpack/lib/*" com.izforge.izpack.compiler.Compiler install.xml \
             -b . \
             -o target/my-installer.jar \
             -k standard \
