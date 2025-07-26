@@ -1,4 +1,4 @@
-name: Build IzPack Installer
+name: Build IzPack Installer (from source)
 
 on:
   push:
@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout Your Installer Project
         uses: actions/checkout@v4
 
       - name: Set up Java 17
@@ -19,38 +19,21 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Install expect
-        run: sudo apt-get update && sudo apt-get install -y expect
+      - name: Install Maven
+        run: sudo apt-get update && sudo apt-get install -y maven
 
-      - name: Download IzPack 5.2.4 Installer
+      - name: Clone and Build IzPack from Source
         run: |
-          curl -L -f -o izpack-installer.jar \
-          https://repo1.maven.org/maven2/org/codehaus/izpack/izpack-dist/5.2.4/izpack-dist-5.2.4-installer.jar
+          git clone https://github.com/izpack/izpack.git
+          cd izpack
+          git checkout rel-5.2.4
+          mvn clean install -DskipTests
 
-      - name: Run IzPack Installer in Console Mode
-        run: |
-          mkdir -p izpack
-          expect <<EOF
-          spawn java -jar izpack-installer.jar -console
-          expect "Input selection:"
-          send "0\r"
-          expect "Press 1 to continue"
-          send "1\r"
-          expect "Press 1 to continue"
-          send "1\r"
-          expect "Press 1 to accept"
-          send "1\r"
-          expect "Select the installation path:"
-          send "./izpack\r"
-          expect "Press 1 to continue"
-          send "1\r"
-          expect eof
-          EOF
-
-      - name: Compile IzPack Installer
+      - name: Build Your IzPack Installer
         run: |
           mkdir -p target
-          java -cp "izpack/lib/*" com.izforge.izpack.compiler.Compiler install.xml \
+          java -jar izpack/izpack-standalone-compiler/target/izpack-standalone-compiler-*.jar \
+            install.xml \
             -b . \
             -o target/my-installer.jar \
             -k standard \
@@ -62,7 +45,7 @@ jobs:
           name: build-log
           path: build.log
 
-      - name: Upload Installer JAR
+      - name: Upload Final Installer JAR
         uses: actions/upload-artifact@v4
         with:
           name: izpack-installer
