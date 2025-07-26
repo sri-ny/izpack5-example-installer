@@ -33,7 +33,7 @@ jobs:
         run: |
           git clone https://github.com/izpack/izpack.git
           cd izpack
-          git checkout release-5.1
+          git checkout 5.1
           mvn clean install -DskipTests
 
       - name: Compile Your IzPack Installer
