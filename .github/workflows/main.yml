@@ -1,4 +1,4 @@
-name: Build IzPack Installer (from source)
+name: Build IzPack Installer from Source
 
 on:
   push:
@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Your Installer Project
+      - name: Checkout Installer Project
         uses: actions/checkout@v4
 
       - name: Set up Java 17
@@ -19,10 +19,11 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Install Maven 3.9.9+
+      - name: Install Maven 3.9.6
         run: |
-          MAVEN_VERSION=3.9.9
-          curl -sL https://downloads.apache.org/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz | tar xz
+          MAVEN_VERSION=3.9.6
+          curl -sL https://downloads.apache.org/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz -o maven.tar.gz
+          tar -xzf maven.tar.gz
           sudo mv apache-maven-${MAVEN_VERSION} /opt/maven
           echo "MAVEN_HOME=/opt/maven" >> $GITHUB_ENV
           echo "/opt/maven/bin" >> $GITHUB_PATH
@@ -32,13 +33,17 @@ jobs:
           git clone https://github.com/izpack/izpack.git
           cd izpack
           git checkout 5.2
+          mvn --version
           mvn clean install -DskipTests
 
       - name: Compile Your IzPack Installer
         run: |
           mkdir -p target
           java -jar izpack/izpack-standalone-compiler/target/izpack-standalone-compiler-*.jar \
-            install.xml -b . -o target/my-installer.jar -k standard \
+            install.xml \
+            -b . \
+            -o target/my-installer.jar \
+            -k standard \
             -v > build.log 2>&1 || (cat build.log && exit 1)
 
       - name: Upload Build Log
@@ -47,7 +52,7 @@ jobs:
           name: build-log
           path: build.log
 
-      - name: Upload Final Installer JAR
+      - name: Upload Final Installer
         uses: actions/upload-artifact@v4
         with:
           name: izpack-installer
