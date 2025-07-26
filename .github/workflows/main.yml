@@ -26,7 +26,7 @@ jobs:
       - name: Compile custom panels
         run: |
           mkdir -p out
-          javac -d out -sourcepath src panels/src/main/java/com/izforge/izpack/panels/xstprocess/*.java
+          javac -d out -sourcepath src panels/src/main/java/com/izforge/izpack/panels/mypanels/*.java
 
       # Step 4: Install IzPack compiler
       - name: Install IzPack Compiler
