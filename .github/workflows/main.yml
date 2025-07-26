@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Your Installer Project
+      - name: Checkout Installer Project
         uses: actions/checkout@v4
 
       - name: Set up Java 11
@@ -19,7 +19,7 @@ jobs:
           distribution: 'temurin'
           java-version: '11'
 
-      - name: Install Maven 3.9.6 (from archive.apache.org)
+      - name: Install Maven 3.9.6 (from Apache Archive)
         run: |
           MAVEN_VERSION=3.9.6
           curl -sL https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz -o maven.tar.gz
@@ -29,12 +29,11 @@ jobs:
           echo "MAVEN_HOME=/opt/maven" >> $GITHUB_ENV
           echo "/opt/maven/bin" >> $GITHUB_PATH
 
-      - name: Clone and Build IzPack from 5.2 Branch
+      - name: Clone and Build IzPack from release-5.1
         run: |
           git clone https://github.com/izpack/izpack.git
           cd izpack
-          git checkout 5.2
-          mvn --version
+          git checkout release-5.1
           mvn clean install -DskipTests
 
       - name: Compile Your IzPack Installer
