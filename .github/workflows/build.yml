@@ -3,7 +3,7 @@ name: Build IzPack Installer
 on:
   push:
     branches:
-      - izpack5-2.0
+      - master
 
 jobs:
   build:
