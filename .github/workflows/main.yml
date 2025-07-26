@@ -13,30 +13,27 @@ jobs:
       - name: Checkout Your Installer Project
         uses: actions/checkout@v4
 
-      - name: Set up Java 17
+      - name: Set up Java 11
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '11'
 
       - name: Install Maven
         run: sudo apt-get update && sudo apt-get install -y maven
 
-      - name: Clone and Build IzPack from Source
+      - name: Clone and Build IzPack 5.2.3
         run: |
           git clone https://github.com/izpack/izpack.git
           cd izpack
-          git checkout rel-5.2.4
+          git checkout 5.2.3
           mvn clean install -DskipTests
 
-      - name: Build Your IzPack Installer
+      - name: Compile Your IzPack Installer
         run: |
           mkdir -p target
           java -jar izpack/izpack-standalone-compiler/target/izpack-standalone-compiler-*.jar \
-            install.xml \
-            -b . \
-            -o target/my-installer.jar \
-            -k standard \
+            install.xml -b . -o target/my-installer.jar -k standard \
             -v > build.log 2>&1 || (cat build.log && exit 1)
 
       - name: Upload Build Log
