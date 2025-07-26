@@ -26,12 +26,12 @@ jobs:
       - name: Download IzPack Installer (5.2.4)
         run: |
           curl -L -o izpack-installer.jar \
-            https://repo1.maven.org/maven2/org/codehaus/izpack/izpack-dist/5.2.4/izpack-dist-5.2.4-installer.jar
+            https://repo1.maven.apache.org/maven2/org/codehaus/izpack/izpack-dist/5.2.4/izpack-dist-5.2.4-installer.jar
 
-      - name: Run IzPack Installer in Console Mode (Compiler Only)
+      - name: Run IzPack Installer in Console Mode
         run: |
           mkdir -p izpack
-          expect <<EOF
+          expect <<'EOF'
           spawn java -jar izpack-installer.jar -console
           expect "Input selection:"
           send "0\r"
@@ -44,7 +44,7 @@ jobs:
           expect "Press 1 to continue"
           send "1\r"
           expect eof
-EOF
+          EOF
 
       - name: Compile Your IzPack Installer
         run: |
