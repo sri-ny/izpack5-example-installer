@@ -43,7 +43,7 @@ jobs:
           expect "Press 1 to continue"
           send "1\r"
           expect eof
-EOF
+          EOF
 
       - name: Compile IzPack Installer
         run: |
