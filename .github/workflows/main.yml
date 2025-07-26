@@ -33,13 +33,13 @@ jobs:
           git clone https://github.com/izpack/izpack.git
           cd izpack
           git checkout 5.1
-          mvn clean install -DskipTests -pl izpack-standalone-compiler
+          mvn clean install -DskipTests -pl izpack-compiler
 
       - name: Compile Your IzPack Installer
         run: |
           mkdir -p target
-          java -jar izpack/izpack-standalone-compiler/target/izpack-standalone-compiler-*.jar \
-            install.xml \
+          java -cp izpack/izpack-compiler/target/izpack-compiler-*.jar \
+            com.izforge.izpack.compiler.Compiler install.xml \
             -b . \
             -o target/my-installer.jar \
             -k standard \
