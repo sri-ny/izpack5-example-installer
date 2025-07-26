@@ -29,21 +29,29 @@ jobs:
           #javac -d out -sourcepath src panels/src/main/java/com/izforge/izpack/panels/mypanels/*.java
 
       # Step 4: Install IzPack compiler
-      - name: Download IzPack Compiler (v5.2.2)
+      - name: Download IzPack 5.2.4 Distribution Installer
         run: |
-          curl -L -f -o izpack-compiler.jar \
-          https://repo1.maven.org/maven2/org/izpack/izpack-standalone-compiler/5.2.2/izpack-standalone-compiler-5.2.2.jar
-          file izpack-compiler.jar
-          test $(stat -c%s izpack-compiler.jar) -gt 4000000 || (echo "Download failed or invalid JAR"; exit 1)
+          curl -L -f -o izpack-installer.jar \
+          https://repo1.maven.org/maven2/org/codehaus/izpack/izpack-dist/5.2.4/izpack-dist-5.2.4-installer.jar
+
+      - name: Create Install Config File
+        run: |
+          echo "installpath=./izpack" > izpack-options.txt
+          echo "auto=true" >> izpack-options.txt
+          echo "lang=eng" >> izpack-options.txt
+          echo "packs=compiler" >> izpack-options.txt
+
+      - name: Run IzPack Installer in Console Mode
+        run: |
+          java -jar izpack-installer.jar -options-system -options-file izpack-options.txt
+
+      - name: Compile Installer
+        run: |
+          java -cp izpack/lib/* com.izforge.izpack.compiler.Compiler install.xml -b . -o target/my-installer.jar -k standard
 
       - name: Build Installer
         run: |
-          java -jar izpack-compiler.jar install.xml -b . -o target/my-installer.jar -k standard
-
-      # Step 5: Run IzPack Compiler
-      - name: Build Installer
-        run: |
-          java -jar izpack-compiler.jar -b . -o installer.jar installer/src/main/izpack/Install.xml
+          java -jar izpack-compiler.jar Install.xml -b . -o target/my-installer.jar -k standard
 
       # Step 6: Upload the installer artifact
       - name: Upload Installer Artifact
