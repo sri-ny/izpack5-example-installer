@@ -1,62 +1,56 @@
-name: Build Custom IzPack Installer
+name: Build IzPack Installer
 
 on:
   push:
     branches:
       - master
-  pull_request:
 
 jobs:
-  build:
+  build-installer:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout the code
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-      # Step 2: Set up Java 1.8
-      - name: Set up Java 8
-        uses: actions/setup-java@v3
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '8'
-          
-      # Step 3: Compile custom panels
-      #- name: Compile custom panels
-        #run: |
-          #mkdir -p out
-          #javac -d out -sourcepath src panels/src/main/java/com/izforge/izpack/panels/mypanels/*.java
+          java-version: '17'
 
-      # Step 4: Install IzPack compiler
-      - name: Download IzPack 5.2.4 Distribution Installer
+      - name: Download IzPack 5.2.4 Installer (Distribution)
         run: |
           curl -L -f -o izpack-installer.jar \
           https://repo1.maven.org/maven2/org/codehaus/izpack/izpack-dist/5.2.4/izpack-dist-5.2.4-installer.jar
 
-      - name: Create Install Config File
+      - name: Install IzPack to ./izpack (Console Mode)
         run: |
-          echo "installpath=./izpack" > izpack-options.txt
-          echo "auto=true" >> izpack-options.txt
-          echo "lang=eng" >> izpack-options.txt
-          echo "packs=compiler" >> izpack-options.txt
+          mkdir -p izpack
+          java -jar izpack-installer.jar -console <<EOF
+          0
+          1
+          ./izpack
+          EOF
 
-      - name: Run IzPack Installer in Console Mode
+      - name: Compile Installer with IzPack
         run: |
-          java -jar izpack-installer.jar -options-system -options-file izpack-options.txt
+          mkdir -p target
+          java -cp izpack/lib/* com.izforge.izpack.compiler.Compiler install.xml \
+            -b . \
+            -o target/my-installer.jar \
+            -k standard \
+            -v > build.log 2>&1 || (cat build.log && exit 1)
 
-      - name: Compile Installer
-        run: |
-          java -cp izpack/lib/* com.izforge.izpack.compiler.Compiler install.xml -b . -o target/my-installer.jar -k standard
-
-      - name: Build Installer
-        run: |
-          java -jar izpack-compiler.jar Install.xml -b . -o target/my-installer.jar -k standard
-
-      # Step 6: Upload the installer artifact
-      - name: Upload Installer Artifact
+      - name: Upload Build Log
         uses: actions/upload-artifact@v4
-
         with:
-          name: custom-izpack-installer
-          path: installer.jar
+          name: build-log
+          path: build.log
+
+      - name: Upload Installer JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: izpack-installer
+          path: target/my-installer.jar
+          if-no-files-found: error
