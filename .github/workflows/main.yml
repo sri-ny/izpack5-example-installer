@@ -19,8 +19,13 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Install Maven
-        run: sudo apt-get update && sudo apt-get install -y maven
+      - name: Install Maven 3.9.9+
+        run: |
+          MAVEN_VERSION=3.9.9
+          curl -sL https://downloads.apache.org/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz | tar xz
+          sudo mv apache-maven-${MAVEN_VERSION} /opt/maven
+          echo "MAVEN_HOME=/opt/maven" >> $GITHUB_ENV
+          echo "/opt/maven/bin" >> $GITHUB_PATH
 
       - name: Clone and Build IzPack from 5.2 Branch
         run: |
