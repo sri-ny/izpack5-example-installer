@@ -39,6 +39,8 @@ jobs:
           send "1\r"
           expect "Press 1 to accept"
           send "1\r"
+          expect "Press 1 to accept"
+          send "1\r"
           expect "Select the installation path:"
           send "./izpack\r"
           expect "Enter O for OK, C to Cancel:"
@@ -49,8 +51,6 @@ jobs:
           send "1\r"
           expect eof
           EOF
-
-
 
       - name: Compile Your IzPack Installer
         run: |
